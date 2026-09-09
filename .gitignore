@@ -48,6 +48,7 @@ server.log
 
 # local research / validation artifacts (not part of the public repo)
 /research/
+/worklog.md
 
 # hardhat / solidity build artifacts
 packages/contracts/artifacts/
