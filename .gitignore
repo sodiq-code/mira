@@ -78,3 +78,8 @@ db/*.db-journal
 /examples/
 /mini-services/
 /tests/
+
+# lock files (use bun.lock at root; contracts workspace has its own)
+/package-lock.json
+/packages/contracts/package-lock.json
+/packages/contracts/.npmrc

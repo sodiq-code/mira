@@ -2,6 +2,7 @@
   "name": "@mira/contracts",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Creditcoin smart contracts: policy bounds, loan lifecycle, and reputation ledgers.",
   "scripts": {
     "compile": "hardhat compile",
@@ -10,9 +11,17 @@
     "clean": "hardhat clean"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "hardhat": "^2.22.0",
+    "@nomicfoundation/hardhat-toolbox-viem": "^1.0.0",
+    "@types/chai": "^4.3.0",
+    "@types/mocha": "^10.0.0",
     "@types/node": "^22.0.0",
-    "typescript": "^5.9.2"
+    "chai": "^4.4.0",
+    "ethers": "^6.15.0",
+    "hardhat": "^3.16.0",
+    "mocha": "^10.8.2",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.2",
+    "viem": "^2.0.0",
+    "zod": "^3.23.0"
   }
 }

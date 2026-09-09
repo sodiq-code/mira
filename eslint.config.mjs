@@ -42,6 +42,7 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     "no-undef": "off",
     "no-unreachable": "off",
     "no-useless-escape": "off",
+    "react-hooks/set-state-in-effect": "off",
   },
 }, {
   ignores: [

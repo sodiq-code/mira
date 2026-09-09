@@ -1,0 +1,257 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import {Decision, LoanStatus} from "./types.sol";
+import {Policy} from "./Policy.sol";
+import {AgentReputation} from "./AgentReputation.sol";
+import {BorrowerReputation} from "./BorrowerReputation.sol";
+
+/**
+ * Loan — the central lifecycle manager for all MIRA loans.
+ *
+ * A single deployed instance manages every loan by integer ID. The worker
+ * is the only caller that can originate, mark repaid, or mark defaulted —
+ * and every originate is validated against the Policy contract first, so
+ * an out-of-bounds LLM decision is rejected on-chain.
+ *
+ * State transitions (Section 24.3):
+ *   Pending → Originated → (Repaid | Defaulted)
+ *
+ * Only Originated is an active state. Repaid and Defaulted are terminal.
+ * On each terminal transition the reputation contracts are updated in the
+ * same transaction, so the on-chain reputation is always consistent with
+ * the loan ledger.
+ */
+contract Loan {
+    // ─── Dependencies ──────────────────────────────────────────────────
+
+    Policy public policy;
+    AgentReputation public agentReputation;
+    BorrowerReputation public borrowerReputation;
+
+    // ─── Roles ──────────────────────────────────────────────────────────
+
+    address public worker;
+
+    // ─── Loan storage ──────────────────────────────────────────────────
+
+    struct LoanData {
+        address borrower;
+        uint256 amount;                  // USD cents
+        uint256 rate;                    // bps
+        uint256 term;                    // days
+        uint256 dueBlock;
+        uint256 originatedBlock;
+        uint256 repaidBlock;
+        uint256 defaultBlock;
+        bytes32 decisionReasoningHash;
+        bytes32 attestationProofHash;
+        bytes32 repaymentProofHash;
+        bytes32 writabilityActionTxHash;
+        LoanStatus status;
+        bool exists;
+    }
+
+    mapping(uint256 => LoanData) private loans;
+    uint256 public nextLoanId;
+
+    // ─── Events ────────────────────────────────────────────────────────
+
+    event LoanOriginated(
+        address indexed borrower,
+        uint256 indexed loanId,
+        uint256 amount,
+        uint256 rate,
+        uint256 term,
+        uint256 dueBlock,
+        bytes32 attestationProofHash
+    );
+    event LoanRepaid(uint256 indexed loanId, uint256 repaidBlock, bytes32 repaymentProofHash);
+    event LoanDefaulted(uint256 indexed loanId, uint256 defaultBlock, bytes32 writabilityActionTxHash);
+
+    // ─── Modifiers ─────────────────────────────────────────────────────
+
+    modifier onlyWorker() {
+        require(msg.sender == worker, "Loan: caller is not worker");
+        _;
+    }
+
+    // ─── Constructor ───────────────────────────────────────────────────
+
+    constructor(
+        address _worker,
+        address _policy,
+        address _agentReputation,
+        address _borrowerReputation
+    ) {
+        require(_worker != address(0), "Loan: worker is zero address");
+        worker = _worker;
+        policy = Policy(_policy);
+        agentReputation = AgentReputation(_agentReputation);
+        borrowerReputation = BorrowerReputation(_borrowerReputation);
+        nextLoanId = 1;
+    }
+
+    // ─── Configuration ─────────────────────────────────────────────────
+
+    function setWorker(address _worker) external {
+        require(msg.sender == worker, "Loan: not worker");
+        worker = _worker;
+    }
+
+    // ─── Origination ───────────────────────────────────────────────────
+
+    /**
+     * Originate a new loan.
+     *
+     * The decision is validated against the Policy contract before any
+     * state is written — if the bounds are violated the transaction
+     * reverts with a descriptive reason. On success:
+     *   - the loan is stored with status Originated
+     *   - a due block is computed (term days × blocks-per-day estimate)
+     *   - the LoanOriginated event is emitted
+     *   - AgentReputation.recordLoan and BorrowerReputation.recordLoan
+     *     are called atomically
+     *
+     * @param borrower            the borrower's address
+     * @param amount              USD cents
+     * @param rate                basis points
+     * @param term                days (7 | 30 | 90)
+     * @param decisionReasoningHash  keccak256 of the LLM reasoning text
+     * @param attestationProofHash   keccak256 of the Attestcoin proof data
+     * @return loanId             the integer ID of the new loan
+     */
+    function originate(
+        address borrower,
+        uint256 amount,
+        uint256 rate,
+        uint256 term,
+        bytes32 decisionReasoningHash,
+        bytes32 attestationProofHash
+    ) external onlyWorker returns (uint256 loanId) {
+        // Validate against the on-chain policy. This is the guardrail that
+        // prevents a hijacked LLM from approving a 100% APR loan.
+        Decision memory d = Decision({
+            borrower: borrower,
+            amount: amount,
+            rate: rate,
+            term: term
+        });
+        require(policy.validateDecision(d), "Loan: decision violates policy");
+
+        loanId = nextLoanId++;
+        uint256 dueBlock = block.number + (term * BLOCKS_PER_DAY);
+
+        loans[loanId] = LoanData({
+            borrower: borrower,
+            amount: amount,
+            rate: rate,
+            term: term,
+            dueBlock: dueBlock,
+            originatedBlock: block.number,
+            repaidBlock: 0,
+            defaultBlock: 0,
+            decisionReasoningHash: decisionReasoningHash,
+            attestationProofHash: attestationProofHash,
+            repaymentProofHash: bytes32(0),
+            writabilityActionTxHash: bytes32(0),
+            status: LoanStatus.Originated,
+            exists: true
+        });
+
+        // Update reputation atomically — if either call fails, the whole
+        // origination reverts, so reputation can never desync from loans.
+        agentReputation.recordLoan(loanId);
+        borrowerReputation.recordLoan(borrower, loanId);
+
+        emit LoanOriginated(borrower, loanId, amount, rate, term, dueBlock, attestationProofHash);
+    }
+
+    // ─── Repayment ─────────────────────────────────────────────────────
+
+    /**
+     * Mark a loan as repaid.
+     *
+     * Called by the worker after it has verified a repayment transaction
+     * via Attestcoin. The proof hash is stored on-chain so anyone can
+     * audit the repayment evidence.
+     */
+    function markRepaid(uint256 loanId, bytes32 repaymentProofHash) external onlyWorker {
+        LoanData storage loan = loans[loanId];
+        require(loan.exists, "Loan: loan does not exist");
+        require(loan.status == LoanStatus.Originated, "Loan: not originated");
+
+        loan.status = LoanStatus.Repaid;
+        loan.repaidBlock = block.number;
+        loan.repaymentProofHash = repaymentProofHash;
+
+        agentReputation.recordRepaid(loanId);
+        borrowerReputation.recordRepaid(loan.borrower);
+
+        emit LoanRepaid(loanId, block.number, repaymentProofHash);
+    }
+
+    // ─── Default ───────────────────────────────────────────────────────
+
+    /**
+     * Mark a loan as defaulted.
+     *
+     * Called by the worker when the due block has passed. The writability
+     * action tx hash (the Creditcoin→Sepolia action) is stored on-chain.
+     */
+    function markDefaulted(uint256 loanId, bytes32 writabilityActionTxHash) external onlyWorker {
+        LoanData storage loan = loans[loanId];
+        require(loan.exists, "Loan: loan does not exist");
+        require(loan.status == LoanStatus.Originated, "Loan: not originated");
+        require(block.number >= loan.dueBlock, "Loan: due block not reached");
+
+        loan.status = LoanStatus.Defaulted;
+        loan.defaultBlock = block.number;
+        loan.writabilityActionTxHash = writabilityActionTxHash;
+
+        agentReputation.recordDefaulted(loanId);
+        borrowerReputation.recordDefaulted(loan.borrower);
+
+        emit LoanDefaulted(loanId, block.number, writabilityActionTxHash);
+    }
+
+    // ─── Reads ─────────────────────────────────────────────────────────
+
+    function status(uint256 loanId) external view returns (LoanStatus) {
+        require(loans[loanId].exists, "Loan: loan does not exist");
+        return loans[loanId].status;
+    }
+
+    function getLoan(uint256 loanId)
+        external
+        view
+        returns (
+            address borrower,
+            uint256 amount,
+            uint256 rate,
+            uint256 term,
+            uint256 dueBlock,
+            uint256 originatedBlock,
+            LoanStatus loanStatus,
+            bytes32 attestationProofHash
+        )
+    {
+        LoanData storage loan = loans[loanId];
+        require(loan.exists, "Loan: loan does not exist");
+        return (
+            loan.borrower,
+            loan.amount,
+            loan.rate,
+            loan.term,
+            loan.dueBlock,
+            loan.originatedBlock,
+            loan.status,
+            loan.attestationProofHash
+        );
+    }
+
+    // ─── Constants ─────────────────────────────────────────────────────
+
+    /// Approximate blocks per day on Creditcoin CC3 Testnet (~15s blocks).
+    uint256 public constant BLOCKS_PER_DAY = 5760;
+}

@@ -6,6 +6,7 @@
   "main": "src/index.ts",
   "scripts": {
     "validate": "bun run scripts/validate-attestcoin.ts",
+    "integrate": "bun run scripts/integrate.ts",
     "dev": "bun run src/index.ts",
     "build": "tsc"
   },
