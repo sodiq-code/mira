@@ -8,6 +8,7 @@
     "validate": "bun run scripts/validate-attestcoin.ts",
     "validate-llm": "bun run scripts/validate-llm.ts",
     "full-flow": "bun run scripts/full-flow.ts",
+    "repayment-default": "bun run scripts/repayment-default.ts",
     "integrate": "bun run scripts/integrate.ts",
     "dev": "bun run src/index.ts",
     "build": "tsc"

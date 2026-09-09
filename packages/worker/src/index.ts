@@ -70,3 +70,21 @@ export {
   type AgentInput,
   type AgentDecision,
 } from './agent';
+
+export {
+  verifyAndMarkRepaid,
+  type RepaymentResult,
+} from './repayment';
+
+export {
+  checkAndMarkDefault,
+  isLoanDue,
+  type DefaultResult,
+} from './default-detector';
+
+export {
+  submitWritabilityAction,
+  DEFAULT_MARKER_ABI,
+  DEFAULT_MARKER_SOURCE,
+  type WritabilityResult,
+} from './writability-relayer';

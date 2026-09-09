@@ -20,6 +20,7 @@
     "worker:validate": "bun run --filter @mira/worker validate",
     "worker:validate-llm": "bun run --filter @mira/worker validate-llm",
     "worker:full-flow": "bun run --filter @mira/worker full-flow",
+    "worker:repayment-default": "bun run --filter @mira/worker repayment-default",
     "worker:integrate": "bun run --filter @mira/worker integrate",
     "worker:build": "bun run --filter @mira/worker build",
     "contracts:compile": "bun run --filter @mira/contracts compile",
