@@ -117,6 +117,40 @@ Precompile addresses on CC3 Testnet:
 
 The long-form integration write-up lives in [`docs/attestcoin-integration.md`](./docs/attestcoin-integration.md).
 
+## Borrower flow
+
+The Next.js frontend (`src/`) implements the end-to-end borrower journey as a single linear flow, with every transaction hash surfaced as a clickable explorer link.
+
+```
+Landing → Connect → Verified factors → Apply → Decision → Originated → (Repay | Default)
+                                                                  ↘ Agent reputation dashboard
+```
+
+**Screens**
+
+- **Landing** — explains MIRA and links into the live flow plus the public reputation dashboard.
+- **Connect** — MetaMask injection, or a preset demo wallet covering every decision path (seasoned, returning, fresh, prior-default).
+- **Verified factors** — the Attestcoin-verified feature vector (wallet age, 90-day tx count, 90-day stablecoin volume, DeFi positions, prior MIRA history), each with a proof tx hash that opens in the CC3 Testnet explorer.
+- **Apply** — amount + term selection, then the verification wait: three concurrent states (proof generation → on-chain verification → agent decision) paced to make the pipeline visible.
+- **Decision** — the agent's verdict (approve / approve-reduced / decline), terms, confidence, a one-paragraph reasoning in the agent's voice, and the agent's reputation snapshot.
+- **Originated** — loan details, origin tx hash, and the two lifecycle actions: mark repaid (verifies via Attestcoin and increments reputation) and trigger default (demo-only, fires the Writability action on Sepolia).
+- **Agent reputation** — the public on-chain track record: cumulative loans, repaid, defaulted, current score, and a recent-loans feed.
+
+**Demo mode.** The credit-check, repayment, and default paths run against synthetic verified data so the flow is reliable for a live audience. Every demo response sets `demoMode: true` and the UI labels it as such — real and simulated data are never blurred. The underwriting decision itself is real: the apply route calls the bounded LLM agent (`@mira/worker`'s `decide()`) with the verbatim system prompt, and a deterministic fallback covers LLM unavailability.
+
+**API contract** (`src/app/api/`)
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/api/credit/check` | POST | Return the Attestcoin-verified feature vector + proof hashes |
+| `/api/loan/apply` | POST | Run the bounded LLM underwriting + originate the loan |
+| `/api/loan/repay` | POST | Verify a repayment and update reputations |
+| `/api/agent/reputation` | GET | Return the agent's on-chain reputation + recent loans |
+| `/api/demo/trigger-default` | POST | Demo-only: force a default + fire the Writability action |
+| `/api/status` | GET | Latest Attestcoin validation result (from the worker script) |
+
+The request/response shapes are defined in [`packages/shared/src/types.ts`](./packages/shared/src/types.ts) and shared by the worker and frontend.
+
 ## Scripts
 
 | Command | Description |

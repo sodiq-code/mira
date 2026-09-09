@@ -1,0 +1,239 @@
+'use client';
+
+/**
+ * Decision screen.
+ *
+ * Shows the agent&apos;s decision (approve / approve_reduced / decline), the
+ * terms, the confidence, a one-paragraph reasoning written in the agent&apos;s
+ * voice (rendered in warm amber to distinguish &quot;the agent speaking&quot; from
+ * verified data), and the agent&apos;s reputation score at decision time.
+ *
+ * For approvals, the Accept button advances to the originated screen. For
+ * declines, the screen offers a path back to try another wallet.
+ */
+
+import { motion } from 'framer-motion';
+import {
+  CheckCircle2,
+  XCircle,
+  TrendingDown,
+  Brain,
+  ShieldCheck,
+  ArrowRight,
+  RotateCcw,
+  Gauge,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { VerifiedBadge } from '@/components/mira/ui/verified-badge';
+import { useMiraStore } from '@/lib/mira/store-client';
+import type { LoanDecision } from '@mira/shared';
+
+export function Decision() {
+  const { decision, setView, resetFlow } = useMiraStore();
+  if (!decision) return null;
+
+  const isDecline = decision.decision === 'decline';
+  const isReduced = decision.decision === 'approve_reduced';
+  const isApprove = decision.decision === 'approve';
+
+  return (
+    <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 sm:py-14">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <Card
+          className={
+            isDecline
+              ? 'border-destructive/40'
+              : isReduced
+                ? 'border-amber-500/40'
+                : 'border-emerald-500/40'
+          }
+        >
+          {/* Header band */}
+          <div
+            className={
+              'rounded-t-xl px-6 py-5 ' +
+              (isDecline
+                ? 'bg-destructive/[0.06]'
+                : isReduced
+                  ? 'bg-amber-500/[0.07]'
+                  : 'bg-emerald-500/[0.07]')
+            }
+          >
+            <div className="flex items-center gap-3">
+              <span
+                className={
+                  'flex h-11 w-11 items-center justify-center rounded-full ' +
+                  (isDecline
+                    ? 'bg-destructive/10 text-destructive'
+                    : isReduced
+                      ? 'bg-amber-500/15 text-amber-600'
+                      : 'bg-emerald-500/15 text-emerald-600')
+                }
+              >
+                {isDecline ? (
+                  <XCircle className="h-6 w-6" />
+                ) : isReduced ? (
+                  <TrendingDown className="h-6 w-6" />
+                ) : (
+                  <CheckCircle2 className="h-6 w-6" />
+                )}
+              </span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  MIRA decided
+                </p>
+                <h1 className="text-2xl font-bold tracking-tight">
+                  {decisionLabel(decision.decision)}
+                </h1>
+              </div>
+              <VerifiedBadge className="ml-auto" label="One-block decision" />
+            </div>
+          </div>
+
+          <CardContent className="space-y-6 p-6">
+            {/* Terms */}
+            {!isDecline && (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <Term label="Approved" value={`$${decision.approvedAmount}`} />
+                <Term label="Rate" value={`${decision.interestRateApr.toFixed(1)}%`} />
+                <Term label="Confidence" value={`${decision.confidence}%`} />
+                <Term
+                  label="Reputation"
+                  value={decision.agentReputation.currentScore.toString()}
+                  mono
+                />
+              </div>
+            )}
+
+            {/* Agent reasoning */}
+            <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.04] p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <Brain className="h-4 w-4 text-amber-600" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                  Agent reasoning
+                </span>
+              </div>
+              <p className="text-pretty text-sm leading-relaxed text-foreground/90">
+                {decision.reasoning}
+              </p>
+            </div>
+
+            {/* Reputation snapshot */}
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <Gauge className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Agent reputation</span>
+                <VerifiedBadge className="ml-auto" label="On-chain" />
+              </div>
+              <div className="grid grid-cols-4 gap-3 rounded-lg border border-border/60 bg-muted/30 p-4 text-center">
+                <RepStat
+                  label="Cumulative loans"
+                  value={decision.agentReputation.cumulativeLoans}
+                />
+                <RepStat
+                  label="Repaid"
+                  value={decision.agentReputation.cumulativeRepaid}
+                  accent="emerald"
+                />
+                <RepStat
+                  label="Defaulted"
+                  value={decision.agentReputation.cumulativeDefaulted}
+                  accent="red"
+                />
+                <RepStat
+                  label="Score"
+                  value={decision.agentReputation.currentScore}
+                  accent="emerald"
+                />
+              </div>
+              <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <ShieldCheck className="h-3 w-3 text-emerald-500" />
+                The agent&apos;s track record lives in an on-chain ledger it cannot tamper with.
+              </p>
+            </div>
+
+            <Separator />
+
+            {/* CTA */}
+            {isApprove || isReduced ? (
+              <div className="flex items-center justify-between gap-3">
+                <Button variant="ghost" onClick={() => setView('apply')}>
+                  Back
+                </Button>
+                <Button size="lg" onClick={() => setView('originated')}>
+                  Accept loan
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <Button variant="ghost" onClick={() => setView('apply')}>
+                  Back
+                </Button>
+                <Button variant="outline" onClick={resetFlow}>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Try another wallet
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+    </div>
+  );
+}
+
+function decisionLabel(d: LoanDecision): string {
+  if (d === 'approve') return 'Approved';
+  if (d === 'approve_reduced') return 'Approved at a reduced amount';
+  return 'Declined';
+}
+
+function Term({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div>
+      <div className={`text-xl font-semibold ${mono ? 'font-mono' : ''}`}>{value}</div>
+      <div className="mt-0.5 text-xs text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+function RepStat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: number;
+  accent?: 'emerald' | 'red';
+}) {
+  const color =
+    accent === 'emerald'
+      ? 'text-emerald-600'
+      : accent === 'red' && value > 0
+        ? 'text-destructive'
+        : 'text-foreground';
+  return (
+    <div>
+      <div className={`font-mono text-lg font-semibold ${color}`}>{value}</div>
+      <div className="mt-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+    </div>
+  );
+}
