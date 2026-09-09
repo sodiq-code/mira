@@ -18,6 +18,8 @@
     "db:reset": "prisma migrate reset",
     "worker:dev": "bun run --filter @mira/worker dev",
     "worker:validate": "bun run --filter @mira/worker validate",
+    "worker:validate-llm": "bun run --filter @mira/worker validate-llm",
+    "worker:full-flow": "bun run --filter @mira/worker full-flow",
     "worker:integrate": "bun run --filter @mira/worker integrate",
     "worker:build": "bun run --filter @mira/worker build",
     "contracts:compile": "bun run --filter @mira/contracts compile",

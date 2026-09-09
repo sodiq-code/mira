@@ -61,3 +61,12 @@ export {
   type CreditCheckOptions,
   type StablecoinSpec,
 } from './credit-check';
+
+export {
+  decide,
+  deterministicFallback,
+  SYSTEM_PROMPT,
+  POLICY_BOUNDS,
+  type AgentInput,
+  type AgentDecision,
+} from './agent';

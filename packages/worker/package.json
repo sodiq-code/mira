@@ -6,13 +6,17 @@
   "main": "src/index.ts",
   "scripts": {
     "validate": "bun run scripts/validate-attestcoin.ts",
+    "validate-llm": "bun run scripts/validate-llm.ts",
+    "full-flow": "bun run scripts/full-flow.ts",
     "integrate": "bun run scripts/integrate.ts",
     "dev": "bun run src/index.ts",
     "build": "tsc"
   },
   "dependencies": {
     "@gluwa/usc-sdk": "^0.18.0",
-    "ethers": "^6.15.0"
+    "@mira/shared": "*",
+    "ethers": "^6.15.0",
+    "z-ai-web-dev-sdk": "^0.0.18"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
