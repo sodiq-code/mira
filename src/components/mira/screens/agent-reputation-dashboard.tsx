@@ -9,7 +9,7 @@
  * audit MIRA&apos;s decision history by reading the AgentReputation contract.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingUp,
@@ -26,16 +26,60 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TxHash } from '@/components/mira/ui/tx-hash';
 import { VerifiedBadge } from '@/components/mira/ui/verified-badge';
+import { RadialGauge, RepaymentRateRing } from '@/components/mira/ui/radial-gauge';
+import { Sparkline } from '@/components/mira/ui/sparkline';
 import { useMiraStore } from '@/lib/mira/store-client';
 import { cc3TxUrl, cc3BlockUrl } from '@/lib/mira/explorer';
 import type { LoanStatus } from '@mira/shared';
 
+const SCORE_MAX = 1000;
+
 export function AgentReputationDashboard() {
   const { reputation, reputationLoading, loadReputation, setView, resetFlow } = useMiraStore();
+  const [activitySeries, setActivitySeries] = useState<number[]>([]);
 
   useEffect(() => {
     void loadReputation();
   }, [loadReputation]);
+
+  // Fetch the loan-activity sparkline series from the agent reputation
+  // endpoint's recent-loans window — computed server-side so the chart
+  // matches the table below it.
+  useEffect(() => {
+    let active = true;
+    fetch('/api/agent/reputation', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!active || !data?.recentLoans) return;
+        // Reconstruct a cumulative series from the recent-loans block heights.
+        const loans = [...data.recentLoans].sort(
+          (a: { originatedBlock: number }, b: { originatedBlock: number }) =>
+            a.originatedBlock - b.originatedBlock,
+        );
+        if (loans.length === 0) {
+          setActivitySeries([0]);
+          return;
+        }
+        const min = loans[0].originatedBlock;
+        const max = loans[loans.length - 1].originatedBlock;
+        const span = Math.max(1, max - min);
+        const buckets = 12;
+        const size = span / buckets;
+        const series = new Array(buckets).fill(0);
+        for (const l of loans) {
+          const idx = Math.min(buckets - 1, Math.floor((l.originatedBlock - min) / size));
+          series[idx] += 1;
+        }
+        for (let i = 1; i < series.length; i++) series[i] += series[i - 1];
+        if (active) setActivitySeries(series);
+      })
+      .catch(() => {
+        if (active) setActivitySeries([0]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [reputation?.lastUpdatedBlock]);
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-14">
@@ -71,37 +115,94 @@ export function AgentReputationDashboard() {
         <DashboardSkeleton />
       ) : reputation ? (
         <>
-          {/* Score + headline stats */}
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-emerald-500/40 bg-emerald-500/[0.03] sm:col-span-2 lg:col-span-1">
+          {/* Score hero + repayment-rate ring */}
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            <Card className="border-emerald-500/40 bg-gradient-to-br from-emerald-500/[0.06] to-transparent">
+              <CardContent className="flex items-center gap-5 p-5 sm:p-6">
+                <RadialGauge
+                  value={reputation.currentScore}
+                  max={SCORE_MAX}
+                  label={reputation.currentScore}
+                  caption={`/ ${SCORE_MAX}`}
+                  size={128}
+                  stroke={11}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <Award className="h-4 w-4 text-emerald-600" />
+                    <span className="text-sm font-semibold">Reputation score</span>
+                    <VerifiedBadge className="ml-auto" label="Live" />
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {scoreVerdict(reputation.currentScore, SCORE_MAX)}
+                  </p>
+                  <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                    <Activity className="h-3 w-3" />
+                    Updated at block #{reputation.lastUpdatedBlock.toLocaleString()}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="flex items-center gap-5 p-5 sm:p-6">
+                <RepaymentRateRing
+                  repaid={reputation.cumulativeRepaid}
+                  total={reputation.cumulativeLoans}
+                  size={84}
+                  stroke={8}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-emerald-600" />
+                    <span className="text-sm font-semibold">Repayment rate</span>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {reputation.cumulativeRepaid} of {reputation.cumulativeLoans} loans repaid in
+                    full.
+                  </p>
+                  <div className="mt-3 flex items-center gap-4 text-xs">
+                    <span className="inline-flex items-center gap-1 text-emerald-600">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      {reputation.cumulativeRepaid} repaid
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-destructive">
+                      <span className="h-1.5 w-1.5 rounded-full bg-destructive" />
+                      {reputation.cumulativeDefaulted} defaulted
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Cumulative activity sparkline + counts */}
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <Card className="sm:col-span-1">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <Award className="h-5 w-5 text-emerald-600" />
-                  <VerifiedBadge label="Live" />
+                  <span className="text-sm font-medium">Loan activity</span>
+                  <VerifiedBadge label="On-chain" />
                 </div>
-                <CardTitle className="mt-3 font-mono text-4xl tracking-tight">
-                  {reputation.currentScore}
-                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm font-medium">Reputation score</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Updated at block #{reputation.lastUpdatedBlock.toLocaleString()}
-                </p>
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <div className="font-mono text-2xl font-semibold">
+                      {reputation.cumulativeLoans}
+                    </div>
+                    <div className="text-xs text-muted-foreground">cumulative</div>
+                  </div>
+                  <Sparkline data={activitySeries} width={120} height={36} />
+                </div>
               </CardContent>
             </Card>
 
             <StatCard
               icon={Activity}
-              label="Cumulative loans"
+              label="Total originated"
               value={reputation.cumulativeLoans}
               href={cc3BlockUrl(reputation.lastUpdatedBlock)}
-            />
-            <StatCard
-              icon={TrendingUp}
-              label="Repaid"
-              value={reputation.cumulativeRepaid}
-              accent="emerald"
             />
             <StatCard
               icon={TrendingDown}
@@ -269,6 +370,18 @@ function StatCard({
       </CardContent>
     </Card>
   );
+}
+
+/**
+ * A short textual verdict for the score band, shown next to the radial gauge
+ * so the number has qualitative context (not just a fill ratio).
+ */
+function scoreVerdict(score: number, max: number): string {
+  const ratio = score / max;
+  if (ratio >= 0.75) return 'Excellent — the agent has built a strong, reliable track record.';
+  if (ratio >= 0.5) return 'Solid — the agent is dependable with room to grow.';
+  if (ratio >= 0.3) return 'Developing — early history; repayments will lift this over time.';
+  return 'Limited — insufficient history to support larger loans yet.';
 }
 
 function StatusBadge({ status }: { status: LoanStatus }) {

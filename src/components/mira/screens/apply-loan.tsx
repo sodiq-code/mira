@@ -25,17 +25,26 @@ import {
   Brain,
   Loader2,
   CheckCircle2,
+  Check,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
-import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { useMiraStore } from '@/lib/mira/store-client';
 
 const TERMS = [7, 30, 90] as const;
 const MAX_AMOUNT = 1000;
+const QUICK_AMOUNTS = [100, 250, 500, 1000];
+
+// Indicative APR per term — the agent sets the final rate from the verified
+// factors, but showing a range here helps the borrower pick a term.
+const TERM_APR: Record<number, [number, number]> = {
+  7: [8, 14],
+  30: [10, 18],
+  90: [14, 22],
+};
 
 export function ApplyLoan() {
   const prefersReduced = useReducedMotion();
@@ -51,7 +60,15 @@ export function ApplyLoan() {
     return () => clearInterval(id);
   }, [applyLoading, applyPhase]);
 
-  const monthlyRate = (amount * (term === 7 ? 0.12 : term === 30 ? 0.14 : 0.2)) / 12;
+  // Indicative rate — midpoint of the term's APR range, used for the preview
+  // summary. The agent sets the actual rate from the verified factors.
+  // APR is a percentage (e.g. 14 means 14%); divide by 100 for the rate.
+  const indicativeApr = (TERM_APR[term][0] + TERM_APR[term][1]) / 2;
+  const rate = indicativeApr / 100;
+  const termFraction = term / 365;
+  const indicativeInterest = amount * rate * termFraction;
+  const totalRepayable = amount + indicativeInterest;
+  const perDayCost = indicativeInterest / term;
 
   function handleApply() {
     void runApply(amount, term);
@@ -96,18 +113,42 @@ export function ApplyLoan() {
                 </span>
               </div>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <Slider
-                value={[amount]}
-                onValueChange={(v) => setAmount(v[0] ?? amount)}
-                min={50}
-                max={MAX_AMOUNT}
-                step={50}
-                aria-label="Loan amount in USD"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>$50</span>
-                <span>${MAX_AMOUNT}</span>
+            <CardContent className="space-y-4">
+              <div className="py-1">
+                <Slider
+                  value={[amount]}
+                  onValueChange={(v) => setAmount(v[0] ?? amount)}
+                  min={50}
+                  max={MAX_AMOUNT}
+                  step={50}
+                  aria-label="Loan amount in USD"
+                  className="[&_[role=slider]]:h-5 [&_[role=slider]]:w-5 [&_[role=slider]]:border-2 [&_[role=slider]]:border-background [&_[role=slider]]:shadow-md [&_[role=slider]]:shadow-emerald-500/20 [&_[role=slider]]:ring-0 [&_[role=slider]]:transition-transform [&_[role=slider]]:hover:scale-110 [&_[data-orientation=horizontal]]:h-2 [&_[data-orientation=horizontal]]:rounded-full"
+                />
+                <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+                  <span>$50</span>
+                  <span>${MAX_AMOUNT}</span>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {QUICK_AMOUNTS.map((q) => {
+                  const active = amount === q;
+                  return (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => setAmount(q)}
+                      aria-pressed={active}
+                      className={cn(
+                        'rounded-full border px-3 py-1 font-mono text-xs font-medium transition-all',
+                        active
+                          ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                          : 'border-border text-muted-foreground hover:border-emerald-500/40 hover:text-foreground',
+                      )}
+                    >
+                      ${q}
+                    </button>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -121,7 +162,7 @@ export function ApplyLoan() {
               <div className="grid grid-cols-3 gap-3">
                 {TERMS.map((t) => {
                   const active = term === t;
-                  const apr = t === 7 ? '12%' : t === 30 ? '14%' : '20%';
+                  const [aprMin, aprMax] = TERM_APR[t];
                   return (
                     <button
                       key={t}
@@ -129,36 +170,49 @@ export function ApplyLoan() {
                       onClick={() => setTerm(t)}
                       aria-pressed={active}
                       className={cn(
-                        'rounded-xl border p-4 text-left transition-all',
+                        'group relative overflow-hidden rounded-xl border p-4 text-left transition-all',
                         active
                           ? 'border-emerald-500 bg-emerald-500/[0.06] shadow-sm shadow-emerald-500/10'
                           : 'border-border hover:border-emerald-500/40 hover:bg-emerald-500/[0.02]',
                       )}
                     >
+                      {active && (
+                        <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-emerald-950">
+                          <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                        </span>
+                      )}
                       <div className="font-mono text-xl font-semibold">{t} days</div>
-                      <div className="mt-1 text-xs text-muted-foreground">~{apr} APR</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {aprMin}–{aprMax}% APR
+                      </div>
                     </button>
                   );
                 })}
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
-                Indicative APR — the agent sets the final rate based on your verified factors.
+                Indicative APR range — the agent sets the final rate based on your verified factors.
               </p>
             </CardContent>
           </Card>
 
           {/* Summary */}
           <Card className="bg-muted/30">
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Indicative first-month interest</span>
-                <span className="font-mono font-medium">
-                  ~${monthlyRate.toFixed(2)}
-                </span>
-              </div>
-              <div className="mt-2 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Due</span>
-                <span className="font-medium">In {term} days</span>
+            <CardContent className="space-y-3 py-4">
+              <SummaryRow label="Principal" value={`$${amount.toFixed(2)}`} />
+              <SummaryRow
+                label={`Indicative interest @ ${indicativeApr.toFixed(1)}% APR`}
+                value={`~$${indicativeInterest.toFixed(2)}`}
+              />
+              <div className="border-t border-border/60 pt-3">
+                <SummaryRow
+                  label="Total repayable"
+                  value={`$${totalRepayable.toFixed(2)}`}
+                  bold
+                />
+                <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Due in {term} days</span>
+                  <span>~${perDayCost.toFixed(2)} / day</span>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -320,5 +374,24 @@ function VerificationWait({
         </div>
       </Card>
     </motion.div>
+  );
+}
+
+function SummaryRow({
+  label,
+  value,
+  bold,
+}: {
+  label: string;
+  value: string;
+  bold?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className={bold ? 'font-medium' : 'text-muted-foreground'}>{label}</span>
+      <span className={`font-mono ${bold ? 'font-semibold text-foreground' : 'font-medium'}`}>
+        {value}
+      </span>
+    </div>
   );
 }

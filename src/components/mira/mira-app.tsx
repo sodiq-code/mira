@@ -15,7 +15,7 @@
  */
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, Award, RotateCcw, Github } from 'lucide-react';
+import { Home, Award, RotateCcw, Github, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MiraWordmark } from '@/components/mira/ui/mira-mark';
@@ -28,13 +28,14 @@ import { ApplyLoan } from '@/components/mira/screens/apply-loan';
 import { Decision } from '@/components/mira/screens/decision';
 import { LoanOriginated } from '@/components/mira/screens/loan-originated';
 import { AgentReputationDashboard } from '@/components/mira/screens/agent-reputation-dashboard';
+import { LoanHistory } from '@/components/mira/screens/loan-history';
 
 const EXT_REL = 'noopener noreferrer';
 
 export function MiraApp() {
-  const { view, resetFlow, setView } = useMiraStore();
+  const { view, wallet, resetFlow, setView } = useMiraStore();
 
-  const inFlow = view !== 'landing' && view !== 'reputation';
+  const inFlow = view !== 'landing' && view !== 'reputation' && view !== 'history';
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -64,6 +65,12 @@ export function MiraApp() {
               <Award className="mr-1.5 h-4 w-4" />
               <span className="hidden sm:inline">Reputation</span>
             </Button>
+            {wallet && (
+              <Button variant="ghost" size="sm" onClick={() => setView('history')}>
+                <History className="mr-1.5 h-4 w-4" />
+                <span className="hidden sm:inline">My loans</span>
+              </Button>
+            )}
             {inFlow && (
               <Button variant="ghost" size="sm" onClick={resetFlow}>
                 <RotateCcw className="mr-1.5 h-4 w-4" />
@@ -107,6 +114,7 @@ export function MiraApp() {
             {view === 'decision' && <Decision />}
             {view === 'originated' && <LoanOriginated />}
             {view === 'reputation' && <AgentReputationDashboard />}
+            {view === 'history' && <LoanHistory />}
           </motion.div>
         </AnimatePresence>
       </main>

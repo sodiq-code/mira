@@ -162,6 +162,51 @@ export function getBorrowerReputation(address: string): { repaid: number; defaul
   return borrowerReputation.get(address.toLowerCase()) ?? { repaid: 0, defaulted: 0 };
 }
 
+/**
+ * Return the full loan history for a borrower address — every loan originated
+ * against this wallet, most-recent first. This powers the borrower-side loan
+ * history view so a connected wallet can audit its own MIRA track record the
+ * same way the public can audit the agent's.
+ *
+ * In production this reads from the Loan contract (filtered by borrower) +
+ * the BorrowerReputation contract; here we read from the demo store.
+ */
+export function getBorrowerLoans(address: string): LoanRecord[] {
+  const normalized = address.toLowerCase();
+  return Array.from(loans.values())
+    .filter((loan) => loan.borrower.toLowerCase() === normalized)
+    .sort((a, b) => b.originatedBlock - a.originatedBlock);
+}
+
+/**
+ * A compact 12-point activity series for the reputation dashboard sparkline:
+ * cumulative loans originated per "bucket" (bucket = ~1 day of blocks). Used
+ * to turn the static cumulative-loans number into a small trend so the
+ * dashboard reads as analytics rather than a snapshot.
+ */
+export function getLoanActivitySeries(buckets = 12): number[] {
+  const all = Array.from(loans.values()).sort(
+    (a, b) => a.originatedBlock - b.originatedBlock,
+  );
+  if (all.length === 0) return new Array(buckets).fill(0);
+
+  const minBlock = all[0].originatedBlock;
+  const maxBlock = all[all.length - 1].originatedBlock;
+  const span = Math.max(1, maxBlock - minBlock);
+  const bucketSize = span / buckets;
+
+  const series = new Array(buckets).fill(0);
+  for (const loan of all) {
+    const idx = Math.min(buckets - 1, Math.floor((loan.originatedBlock - minBlock) / bucketSize));
+    series[idx] += 1;
+  }
+  // Convert to cumulative so the sparkline shows growth.
+  for (let i = 1; i < series.length; i++) {
+    series[i] += series[i - 1];
+  }
+  return series;
+}
+
 export interface OriginateInput {
   borrower: string;
   borrowerLabel?: string;
