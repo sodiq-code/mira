@@ -91,3 +91,4 @@ db/*.db-journal
 /package-lock.json
 /packages/contracts/package-lock.json
 /packages/contracts/.npmrc
+.env*

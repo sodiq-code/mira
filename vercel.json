@@ -1,0 +1,7 @@
+{
+  "buildCommand": "next build",
+  "framework": "nextjs",
+  "github": {
+    "enabled": false
+  }
+}
