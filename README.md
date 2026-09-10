@@ -2,9 +2,14 @@
 
 ## The AI lender that has to earn its own credit score.
 
-**MIRA is an autonomous lending agent whose decisions, capital, and reputation are cryptographically accountable — on Creditcoin, verified by Attestcoin.**
+**AI lenders shouldn't be trusted. They should be accountable.**
 
-MIRA uses Attestcoin-verified Ethereum activity to underwrite borrowers, uses an LLM to make bounded lending decisions, and gives the **AI itself** an on-chain reputation that determines how much capital it is allowed to control.
+MIRA gives the AI lender its own credit score. Good loans raise it; bad loans lower it. The score determines how much capital the AI is allowed to control — on Creditcoin, verified by Attestcoin.
+
+```
+  GOOD LOANS  →  SCORE ↑  →  MORE CAPITAL
+  BAD LOANS   →  SCORE ↓  →  LESS CAPITAL
+```
 
 The borrower gets a credit score. The AI lender gets a credit score too. That is MIRA.
 
@@ -12,31 +17,54 @@ The borrower gets a credit score. The AI lender gets a credit score too. That is
 
 ---
 
-## The idea
+## The killer demo
 
-> **MIRA makes the AI lender accountable to the same thing it uses to evaluate borrowers: an on-chain credit history.**
-
-Traditional credit asks: *"Can we trust the borrower?"*
-
-MIRA asks a second question: *"Can we trust the AI making the lending decisions?"*
+The agent has already earned, lost, and re-earned its capital authority — through its own on-chain outcomes, no human intervention.
 
 ```
-Borrower reputation
-       ↓
-AI makes decision
-       ↓
-Policy constrains AI
-       ↓
-Capital is deployed
-       ↓
-Repayment/default is cryptographically verified
-       ↓
-AI reputation changes
-       ↓
-Capital authority changes
+        MIRA'S CREDIT SCORE
+
+             500
+              │
+        repayments
+              ↓
+             650
+              │
+        more capital
+              ↓
+            $100
+              │
+           default
+              ↓
+             625
+              │
+        less capital
+              ↓
+             $25
+              │
+        repayments
+              ↓
+             675
+              │
+              ▼
+           $100
 ```
 
-This creates a closed-loop autonomous credit system where the AI doesn't merely make decisions — **it has something to lose.**
+> **The AI earned its authority. Then lost it. Then earned it back.**
+
+32+ loans originated · 20 repaid · 1 defaulted · **score 675** · **$100 capital authority**
+
+---
+
+## Why MIRA is an AI project
+
+**AI decides** — interprets verified borrower evidence and chooses loan terms.
+
+**Protocol constrains** — the AI cannot exceed its permitted financial action space.
+
+**Outcomes train authority** — the AI's real lending outcomes change its own reputation and future capital authority.
+
+> **MIRA doesn't put an AI on top of a lending protocol. It makes the AI itself an accountable economic actor.**
 
 ---
 
@@ -52,21 +80,6 @@ This creates a closed-loop autonomous credit system where the AI doesn't merely 
 8. **Earn or lose authority** — its reputation determines how much capital it is allowed to manage.
 
 > **The result: an AI lender that must earn the right to control more capital.**
-
----
-
-## The live demo
-
-32+ loans originated · 20 repaid · 1 defaulted · **agent score 675** · **$100 capital authority**
-
-The agent has already **earned → lost → re-earned** higher capital authority:
-
-```
-500  →  650+  →  625  →  650+  →  675
-$25  →  $100  →  $25  →  $100  →  $100
-```
-
-No human changed the agent's authority. Its own on-chain outcomes changed it.
 
 ---
 
@@ -145,22 +158,30 @@ The effective per-loan cap is the **minimum** of the agent tier and the borrower
 
 ## Why Attestcoin is essential
 
-> Without Attestcoin, MIRA's AI would have to trust an off-chain representation of the borrower's history and repayment outcomes.
->
-> With Attestcoin, the Creditcoin contracts can verify the underlying Ethereum transaction itself.
->
-> **Attestcoin is therefore part of MIRA's trust model — not an integration checkbox.**
+> Without Attestcoin, MIRA's AI would have to trust an off-chain representation of the borrower's history and repayment outcomes. With Attestcoin, the Creditcoin contracts can verify the underlying Ethereum transaction itself. **Attestcoin is part of MIRA's trust model — not an integration checkbox.**
 
 ```
-             ATTESTCOIN
+REAL SEPOLIA TX
+      ↓
+Attestcoin proof
+      ↓
+BlockProver
+      ↓
+Creditcoin
+      ↓
+verified borrower factor
+      ↓
+AI decision
+      ↓
+loan
+```
 
-Ethereum ───────────────► Creditcoin
-         READABILITY
-      borrower evidence
-
-Creditcoin ─────────────► Ethereum
-          WRITABILITY
-       default action
+```
+SEPOLIA
+   ↑
+Writability
+   ↑
+Creditcoin default
 ```
 
 Most integrations use Attestcoin to **read** another chain. MIRA also uses the protocol's **write direction** for default handling — the deeper half of the protocol that most integrations omit.
@@ -379,28 +400,6 @@ Precompiles:
 ```
 
 The full technical architecture — components, trust model, failure handling, and the 10 on-chain Policy checks — lives in [`docs/architecture.md`](./docs/architecture.md).
-
-## Why MIRA is an AI project
-
-AI is responsible for:
-- interpreting verified borrower evidence
-- evaluating risk
-- selecting loan amount / rate / term
-- producing reasoning
-- adapting decisions to borrower context
-
-Blockchain is responsible for:
-- defining the allowed action space
-- verifying evidence
-- enforcing capital limits
-- recording outcomes
-- determining agent authority
-
-> **The AI chooses within a cryptographically enforced action space.**
-
-The AI isn't the trust anchor. The protocol is. MIRA deliberately separates intelligence from authority:
-
-**AI = intelligence. Policy + proofs + reputation = authority.**
 
 ## AI measurability
 

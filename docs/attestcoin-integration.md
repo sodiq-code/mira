@@ -82,7 +82,7 @@ const receipt = await tx.wait();
 | **Readability** (Sepolia → Creditcoin) | Underwriting: prove the borrower's Sepolia activity is real | `verifySingle` |
 | **Writability** (Creditcoin → Sepolia) | Default handling: trigger an on-Ethereum action when a loan defaults | `verifyAndEmitSingle` + Creditcoin-initiated relay |
 
-Most integrations stop at Readability. MIRA uses both, which is the deeper half of the protocol and the basis for the agent's reputation loop: every verified repayment increments `AgentReputation.cumulativeRepaid`, every verified default increments `cumulativeDefaulted`, and the resulting score is a public, unfakeable measure of how good the agent is at picking loans.
+Most integrations stop at Readability. MIRA uses both, which is the deeper half of the protocol and the basis for the agent's reputation loop: every verified repayment increments `AgentReputation.cumulativeRepaid`, every verified default increments `cumulativeDefaulted`, and the resulting score is a public, cryptographically constrained measure of how good the agent is at picking loans.
 
 ### Contract-verified repayment (the trust anchor)
 

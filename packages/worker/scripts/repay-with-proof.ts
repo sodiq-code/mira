@@ -1,7 +1,7 @@
 /**
  * Proof-verified repayment on CC3 Testnet.
  *
- * This script demonstrates the unfakeable reputation path end-to-end:
+ * This script demonstrates the cryptographically constrained reputation path end-to-end:
  *   1. Originate a real loan on the (new) Loan contract.
  *   2. Generate an Attestcoin inclusion proof for one of the borrower's
  *      verified Sepolia transactions.
