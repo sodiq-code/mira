@@ -8,13 +8,15 @@ interface StatusResponse {
   status: "verified" | "failed" | "pending" | "error";
   chainKey?: number;
   sepoliaTxHash?: string;
-  sepoliaBlock?: number;
-  headerNumber?: number;
+  sepoliaBlock?: number | null;
+  headerNumber?: number | null;
   proofSource?: "hosted" | "raw";
   readonlyVerification?: boolean;
   onchainTxHash?: string | null;
-  verifiedAt?: string;
+  cc3BlockNumber?: number;
   explorerUrl?: string | null;
+  sepoliaExplorerUrl?: string | null;
+  verifiedAt?: string | null;
   fetchedAt?: string;
   message?: string;
 }
@@ -85,32 +87,48 @@ export function LiveValidationCard() {
           </div>
         </div>
 
-        {data?.status === "verified" && data.sepoliaTxHash && (
-          <a
-            href={`https://sepolia.etherscan.io/tx/${data.sepoliaTxHash}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border/70 bg-background px-3 py-1.5 text-xs font-medium text-foreground/80 transition-colors hover:text-foreground hover:border-border"
-          >
-            View on Etherscan
-            <ExternalLink className="h-3 w-3" />
-          </a>
+        {data?.status === "verified" && (
+          <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+            {data.explorerUrl && (
+              <a
+                href={data.explorerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border/70 bg-background px-3 py-1.5 text-xs font-medium text-foreground/80 transition-colors hover:text-foreground hover:border-border"
+              >
+                View on CC3
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+            {data.sepoliaTxHash && (
+              <a
+                href={data.sepoliaExplorerUrl ?? `https://sepolia.etherscan.io/tx/${data.sepoliaTxHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border/70 bg-background px-3 py-1.5 text-xs font-medium text-foreground/80 transition-colors hover:text-foreground hover:border-border"
+              >
+                View on Etherscan
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
         )}
       </div>
 
       {data?.status === "verified" && (
         <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-border/40 pt-5 text-xs sm:grid-cols-4">
-          <Field label="Source chain" value={data.chainKey != null ? `Sepolia (key ${data.chainKey})` : "—"} mono />
-          <Field label="Proof source" value={data.proofSource ?? "—"} mono />
-          <Field label="Sepolia block" value={data.sepoliaBlock != null ? `#${data.sepoliaBlock.toLocaleString()}` : "—"} mono />
-          <Field label="Precompile" value={data.readonlyVerification ? "verified" : "—"} mono />
+          <Field label="Proof source" value={data.proofSource ?? "hosted"} mono />
+          <Field label="CC3 block" value={data.cc3BlockNumber != null ? `#${data.cc3BlockNumber.toLocaleString()}` : "—"} mono />
+          <Field label="Precompile" value="verifyAndEmitSingle" mono />
+          <Field label="Status" value="confirmed" mono />
           <Field
-            label="Last verified"
-            value={data.verifiedAt ? formatRelative(data.verifiedAt) : "—"}
-            className="col-span-2 sm:col-span-1"
+            label="CC3 transaction"
+            value={data.onchainTxHash ? shortenHash(data.onchainTxHash) : "—"}
+            mono
+            className="col-span-2"
           />
           <Field
-            label="Transaction"
+            label="Sepolia tx proven"
             value={data.sepoliaTxHash ? shortenHash(data.sepoliaTxHash) : "—"}
             mono
             className="col-span-2"
@@ -118,9 +136,9 @@ export function LiveValidationCard() {
         </dl>
       )}
 
-      {data?.status === "pending" && (
-        <p className="mt-4 rounded-lg bg-background/60 px-3 py-2 font-mono text-xs text-muted-foreground">
-          $ bun run worker:validate
+      {data?.status === "verified" && data.message && (
+        <p className="mt-4 rounded-lg bg-background/60 px-3 py-2 text-xs text-muted-foreground">
+          {data.message}
         </p>
       )}
 
@@ -174,8 +192,8 @@ function getStatusConfig(status?: StatusResponse["status"]) {
       };
     case "pending":
       return {
-        title: "Awaiting first validation",
-        subtitle: "No run recorded yet. Run the validation script to populate the live status.",
+        title: "Querying CC3 Testnet…",
+        subtitle: "Reading the on-chain verification state from the BlockProver precompile.",
         border: "border-border/70",
         bg: "bg-muted/40",
         icon: "text-muted-foreground",
@@ -184,7 +202,7 @@ function getStatusConfig(status?: StatusResponse["status"]) {
     case "error":
       return {
         title: "Status unavailable",
-        subtitle: "Could not read the validation artifact.",
+        subtitle: "Could not reach the CC3 Testnet RPC to check the verification state.",
         border: "border-border/70",
         bg: "bg-muted/40",
         icon: "text-muted-foreground",
@@ -204,17 +222,4 @@ function getStatusConfig(status?: StatusResponse["status"]) {
 
 function shortenHash(hash: string): string {
   return `${hash.slice(0, 10)}…${hash.slice(-8)}`;
-}
-
-function formatRelative(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return "—";
-  const diffMs = Date.now() - then;
-  const mins = Math.round(diffMs / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.round(hrs / 24);
-  return `${days}d ago`;
 }
