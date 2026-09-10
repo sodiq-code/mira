@@ -186,6 +186,47 @@ contract Policy {
         return tierCap < maxLoanAmount ? tierCap : maxLoanAmount;
     }
 
+    // ─── Borrower-tier ladder ──────────────────────────────────────────
+
+    /**
+     * The maximum loan amount a borrower is eligible for, based on their
+     * verified repayment history. A first-time borrower (0 repaid) gets
+     * the minimum cap; a returning borrower with verified repayments gets
+     * a higher cap. This makes "Loan 2 ≠ Loan 1" tangible on-chain: a
+     * borrower who repaid their first loan unlocks a larger second loan.
+     *
+     * Borrower tier ladder (repaidCount = verified repayments on MIRA):
+     *   0 repaid      →  $25    (2,500 cents)   — first-time borrower
+     *   1 repaid      →  $50    (5,000 cents)   — one good loan
+     *   2–3 repaid    →  $100   (10,000 cents)   — building trust
+     *   4–6 repaid    →  $200   (20,000 cents)   — established borrower
+     *   ≥ 7 repaid    →  $500   (50,000 cents)   — trusted borrower
+     *
+     * The effective cap is the MIN of the agent tier cap and the borrower
+     * tier cap — a proven agent cannot lend more to a first-time borrower
+     * than the borrower tier allows, and a trusted borrower cannot borrow
+     * more than the agent is authorized to lend.
+     */
+    function borrowerTierCap(uint256 repaidCount) public pure returns (uint256) {
+        if (repaidCount == 0) return 2_500;       // $25  — first-time
+        if (repaidCount == 1) return 5_000;        // $50  — one good loan
+        if (repaidCount <= 3) return 10_000;        // $100 — building trust
+        if (repaidCount <= 6) return 20_000;        // $200 — established
+        return 50_000;                              // $500 — trusted borrower
+    }
+
+    /**
+     * The effective per-loan cap for a specific borrower: the minimum of
+     * the agent's authority and the borrower's tier. Both must allow the
+     * loan; neither can override the other.
+     */
+    function effectiveBorrowerCap(address borrower) public view returns (uint256) {
+        uint256 agentCap = agentTierCap(agentReputation.currentScore());
+        (uint256 repaid, ) = borrowerReputation.getReputation(borrower);
+        uint256 bCap = borrowerTierCap(repaid);
+        return agentCap < bCap ? agentCap : bCap;
+    }
+
     // ─── Validation ────────────────────────────────────────────────────
 
     /**
@@ -211,6 +252,12 @@ contract Policy {
         uint256 cap = agentTierCap(agentReputation.currentScore());
         if (d.amount > cap) return false;
 
+        // Borrower-tier check: a first-time borrower (0 repaid) is capped
+        // at $25; a returning borrower with verified repayments unlocks a
+        // higher cap. This makes "Loan 2 ≠ Loan 1" enforceable on-chain.
+        uint256 bCap = borrowerTierCap(_borrowerRepaidCount(d.borrower));
+        if (d.amount > bCap) return false;
+
         if (d.rate < minRate || d.rate > maxRate) return false;
 
         bool termAllowed = false;
@@ -233,5 +280,12 @@ contract Policy {
     /// Convenience accessor that returns the full terms array in one call.
     function getAllowedTerms() external view returns (uint256[] memory) {
         return allowedTerms;
+    }
+
+    /// Internal: read a borrower's verified repaid count (0 if no record yet).
+    function _borrowerRepaidCount(address borrower) internal view returns (uint256) {
+        if (address(borrowerReputation) == address(0)) return 0;
+        (uint256 repaid, ) = borrowerReputation.getReputation(borrower);
+        return repaid;
     }
 }

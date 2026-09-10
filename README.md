@@ -90,11 +90,11 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 | Contract | Address |
 |---|---|
 | MockUSDC (ERC-20) | [`0x4447e0C1845b03212a8e9A1d02AE9E0092056d1f`](https://creditcoin-testnet.blockscout.com/address/0x4447e0C1845b03212a8e9A1d02AE9E0092056d1f) |
-| Policy | [`0x684b9a5bB7aC7923B15E7D490078db5c21317986`](https://creditcoin-testnet.blockscout.com/address/0x684b9a5bB7aC7923B15E7D490078db5c21317986) |
+| Policy | [`0x04DeB04276d3CF6c4EBd8073a48900efCf71ED3F`](https://creditcoin-testnet.blockscout.com/address/0x04DeB04276d3CF6c4EBd8073a48900efCf71ED3F) |
 | AgentReputation | [`0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46`](https://creditcoin-testnet.blockscout.com/address/0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46) |
 | BorrowerReputation | [`0x18919cc60fC52d9077599A306C72b7B48423ed0C`](https://creditcoin-testnet.blockscout.com/address/0x18919cc60fC52d9077599A306C72b7B48423ed0C) |
 | LiquidityPool | [`0xF089D710474AA74199d98586EbFD2be3a7c6502C`](https://creditcoin-testnet.blockscout.com/address/0xF089D710474AA74199d98586EbFD2be3a7c6502C) |
-| Loan | [`0x239E3f87192fC63E8e58688C07f2b6406B9A83a8`](https://creditcoin-testnet.blockscout.com/address/0x239E3f87192fC63E8e58688C07f2b6406B9A83a8) |
+| Loan | [`0x6348E460113CFc06eF5eafF290a1Fcc5DcC99f21`](https://creditcoin-testnet.blockscout.com/address/0x6348E460113CFc06eF5eafF290a1Fcc5DcC99f21) |
 
 ## Verified on-chain state
 
@@ -161,6 +161,20 @@ The agent's reputation score determines how much capital it is trusted to manage
 | ≥ 850 | $2,500 | Trusted agent |
 
 When cumulative defaults reach 5, the AgentReputation contract automatically calls `Policy.setPaused(true)` — no governance vote required. A catastrophically bad agent halts itself.
+
+## Borrower-tier ladder (Loan 1 ≠ Loan 2)
+
+A first-time borrower is capped at a small amount; a returning borrower with verified repayments unlocks a higher cap. This makes the progression tangible on-chain: a borrower who repaid their first loan can borrow more on their second.
+
+| Verified repayments | Borrower cap | Description |
+|---|---|---|
+| 0 | $25 | First-time borrower |
+| 1 | $50 | One good loan |
+| 2–3 | $100 | Building trust |
+| 4–6 | $200 | Established borrower |
+| ≥ 7 | $500 | Trusted borrower |
+
+The effective per-loan cap is the **minimum** of the agent tier and the borrower tier — a proven agent cannot lend more to a first-time borrower than the borrower tier allows, and a trusted borrower cannot borrow more than the agent is authorized to lend. `Policy.validateDecision` enforces both checks on-chain.
 
 ## Adversarial demo: Attack MIRA
 

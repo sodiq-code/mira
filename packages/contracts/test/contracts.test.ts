@@ -237,6 +237,28 @@ describe('AgentReputation score + tier ladder', () => {
     expect(await policy.agentTierCap(850n)).to.equal(250_000n); // $2,500
     expect(await policy.agentTierCap(1000n)).to.equal(250_000n); // $2,500
   });
+
+  it('borrower tier ladder maps repaid count → capital limit', async () => {
+    // A first-time borrower (0 repaid) is capped at $25.
+    expect(await policy.borrowerTierCap(0n)).to.equal(2_500n);   // $25 — first-time
+    expect(await policy.borrowerTierCap(1n)).to.equal(5_000n);   // $50 — one good loan
+    expect(await policy.borrowerTierCap(2n)).to.equal(10_000n);  // $100 — building trust
+    expect(await policy.borrowerTierCap(3n)).to.equal(10_000n);  // $100
+    expect(await policy.borrowerTierCap(4n)).to.equal(20_000n);  // $200 — established
+    expect(await policy.borrowerTierCap(6n)).to.equal(20_000n);  // $200
+    expect(await policy.borrowerTierCap(7n)).to.equal(50_000n);  // $500 — trusted borrower
+    expect(await policy.borrowerTierCap(100n)).to.equal(50_000n); // $500
+  });
+
+  it('effective borrower cap is the min of agent and borrower tier', async () => {
+    // Agent score is 485 (< 500) → agent cap $0. Borrower has 1 repaid
+    // → borrower cap $50. Effective = min($0, $50) = $0 (agent blocks).
+    expect(await policy.effectiveBorrowerCap(deployer.address)).to.equal(0n);
+
+    // The "other" wallet has no MIRA history (0 repaid) → borrower cap $25.
+    // Agent cap is $0 (score 485) → effective $0.
+    expect(await policy.effectiveBorrowerCap(other.address)).to.equal(0n);
+  });
 });
 
 // ─── On-chain proof verification (markRepaidWithProof) ────────────────
