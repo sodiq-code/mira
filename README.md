@@ -488,15 +488,32 @@ On mainnet, the same code path would prove Aave V3 `Repay` events once Creditcoi
 
 ## Tests
 
-26 contract tests pass, covering:
-- LiquidityPool ERC-20 custody (deposit, available, utilization)
-- Policy validation (10 checks: paused, amount, agent tier, borrower tier, rate, term, liquidity, expiry, evidence-hash, nonce)
-- Loan lifecycle (originate, repay, default — with real token transfers)
-- `markRepaidWithProof` on-chain verification (reverts on fabricated proof)
-- Per-factor evidence storage (`getFactorProofs`)
+41 contract tests pass, covering:
+
+**Pool custody & capital**
+- ERC-20 custody (deposit, available, utilization, withdrawal with outstanding loans)
+- Atomic rollback on insufficient liquidity (no state change, no token move)
+
+**Policy validation (10 on-chain checks)**
+- Paused, amount, agent tier, borrower tier, rate bounds, term, liquidity, expiry TTL, evidence-hash format, nonce replay
+
+**Loan lifecycle (real token transfers)**
+- Originate, repay, default — with real ERC-20 movement
+- Double-repayment prevention, double-default prevention
+- Repay / default on non-existent loan reverts
+
+**Contract-verified repayment**
+- `markRepaidWithProof` reverts on fabricated proof (calls BlockProver on-chain)
+- Per-factor evidence storage + retrieval (`getFactorProofs`)
 - Production-mode lock (`markRepaid` rejected after `lockToProductionMode`)
-- Agent reputation score + tier ladder
+- Non-governance cannot call `lockToProductionMode`
+
+**Reputation & accountability**
+- Agent score formula (+10 per repaid, −25 per defaulted)
+- Agent tier ladder + borrower tier ladder
+- Effective cap = min(agent tier, borrower tier)
 - Auto-pause on 5 defaults
+- Borrower nonce increments per origination (replay protection)
 
 Run them:
 
