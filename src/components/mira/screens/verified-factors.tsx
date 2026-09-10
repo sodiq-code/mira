@@ -127,7 +127,10 @@ export function VerifiedFactors() {
               precompile. A borrower cannot claim activity they did not produce.
             </p>
           </div>
-          <VerifiedBadge label="Demo-mode data" className="shrink-0" />
+          <VerifiedBadge
+            label={credit.demoMode ? 'Demo-mode data' : 'Attestcoin-verified'}
+            className="shrink-0"
+          />
         </div>
       </motion.div>
 
@@ -271,8 +274,10 @@ export function VerifiedFactors() {
               Connected as{' '}
               <span className="font-mono text-foreground">
                 {wallet?.address.slice(0, 8)}…{wallet?.address.slice(-4)}
-              </span>{' '}
-              via {wallet?.mode}.
+              </span>
+              {credit.demoMode
+                ? ` via demo profile.`
+                : ` — real Attestcoin-verified Sepolia wallet.`}
             </span>
           </div>
           <Button size="lg" onClick={() => setView('apply')}>
