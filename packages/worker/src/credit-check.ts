@@ -98,6 +98,14 @@ export const SEPOLIA_STABLECOINS: readonly StablecoinSpec[] = [
     address: '0xb4f7DD56612eE4893AD5A3FA3d06dC3BcEA1BA3C',
     decimals: 18,
   },
+  {
+    symbol: 'USDC',
+    // MIRA-deployed MockUSDC on Sepolia — used to create real testnet
+    // financial activity (token transfers) that Attestcoin can verify.
+    // On mainnet this would be the real USDC address.
+    address: '0x7fAb1E37d992109d3aA747703436ff4e261391b7',
+    decimals: 6,
+  },
 ];
 
 /**
@@ -182,6 +190,16 @@ export interface CreditCheckOptions {
    * Defaults to 10,000. Ignored when the provider exposes `getHistory`.
    */
   maxBlockScanRange?: number;
+  /**
+   * Pre-discovered Sepolia transaction hashes to verify via Attestcoin,
+   * bypassing the slow block-scan fallback. In production, callers should
+   * use an indexed API (Etherscan, Alchemy Transfers, The Graph) to
+   * discover the wallet's recent transactions and pass them here — the
+   * trust is in the Attestcoin verification, not in how the transactions
+   * were discovered. When omitted, the function falls back to block
+   * scanning.
+   */
+  knownTxHashes?: string[];
 }
 
 /**
@@ -343,11 +361,27 @@ export async function runCreditCheck(
   // 2. Fetch the wallet's Sepolia transaction history.
   let history: TransactionResponse[];
   try {
-    history = await fetchWalletHistory(
-      sepolia,
-      wallet,
-      opts.maxBlockScanRange ?? DEFAULT_MAX_BLOCK_SCAN_RANGE,
-    );
+    if (opts.knownTxHashes && opts.knownTxHashes.length > 0) {
+      // Fast path: caller has pre-discovered transaction hashes (e.g. via
+      // Etherscan API or Alchemy Transfers). Fetch each one by hash — far
+      // faster than scanning blocks, and the trust is in the Attestcoin
+      // verification that follows, not in how the txs were discovered.
+      history = [];
+      for (const hash of opts.knownTxHashes) {
+        try {
+          const tx = await sepolia.getTransaction(hash);
+          if (tx) history.push(tx);
+        } catch {
+          // Skip txs that can't be fetched (e.g. not yet mined).
+        }
+      }
+    } else {
+      history = await fetchWalletHistory(
+        sepolia,
+        wallet,
+        opts.maxBlockScanRange ?? DEFAULT_MAX_BLOCK_SCAN_RANGE,
+      );
+    }
   } catch (err) {
     return insufficientActivity(
       `Failed to fetch Sepolia tx history for ${wallet}: ${
