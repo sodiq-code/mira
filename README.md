@@ -99,10 +99,11 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 ## Verified on-chain state
 
 **Agent reputation (live from CC3 Testnet):**
-- Current score: 510 (base 500 + 10 for verified repayment)
-- Cumulative loans: 1
-- Cumulative repaid: 1
-- Capital authority: $25.00 (tier ladder: score 510 → $25 lending limit)
+- Current score: 650 (base 500 + 15 verified repayments × 10)
+- Cumulative loans: 20
+- Cumulative repaid: 15
+- Cumulative defaulted: 0
+- Capital authority: $100.00 (tier upgrade from $25 → $100 at score 650)
 - Auto-paused: false
 
 **Liquidity pool (real ERC-20 custody):**
@@ -125,7 +126,13 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 - Origin tx: `0x89cc6d8d6c44acf5eb0c481c7f3c2577b32c49018104b524dee994efade43b99`
 - Repaid via `Loan.markRepaid()` — real ERC-20 tokens moved back to the pool, AgentReputation updated on-chain
 - Repay tx: `0xc79b734fd639e0f676d2c45aa04bb1085e9aabbb786e4488a89a62f8123b1f04`
-- Agent score after repayment: 510 (500 base + 10 for verified repayment)
+
+**Reputation → capital authority progression (live on CC3 Testnet):**
+- 20 loans originated, 15 repaid, 0 defaulted
+- Score progression: 500 → 510 → 640 → 650
+- Capital authority progression: $25 → $25 → $25 → **$100** (tier upgrade at score 650)
+- Tier-up tx: `0x211e899cf8cb5eea45c452f913560c9fbdd4d7eaefc2c635c1f2180684d0c183` (loan #20, the one that pushed the score to 650)
+- The agent earned the right to manage 4× more capital through verified repayments
 
 ## Agent-authority tier ladder
 
