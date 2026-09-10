@@ -32,7 +32,8 @@ export type FlowView =
   | 'history'
   | 'attack'
   | 'experiment'
-  | 'comparison';
+  | 'comparison'
+  | 'guided';
 
 export interface WalletState {
   address: string;

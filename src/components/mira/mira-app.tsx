@@ -15,7 +15,7 @@
  */
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, Award, Github, History, ShieldX, FlaskConical, Users } from 'lucide-react';
+import { Home, Award, Github, History, ShieldX, FlaskConical, Users, Map } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MiraWordmark } from '@/components/mira/ui/mira-mark';
@@ -33,6 +33,7 @@ import { LoanHistory } from '@/components/mira/screens/loan-history';
 import { AttackMIRA } from '@/components/mira/screens/attack-mira';
 import { ExperimentResults } from '@/components/mira/screens/experiment-results';
 import { ABComparison } from '@/components/mira/screens/ab-comparison';
+import { GuidedDemo } from '@/components/mira/screens/guided-demo';
 
 const EXT_REL = 'noopener noreferrer';
 
@@ -78,6 +79,10 @@ export function MiraApp() {
             <Button variant="ghost" size="sm" onClick={() => setView('comparison')}>
               <Users className="mr-1.5 h-4 w-4" />
               <span className="hidden sm:inline">A/B</span>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setView('guided')}>
+              <Map className="mr-1.5 h-4 w-4" />
+              <span className="hidden sm:inline">Guided</span>
             </Button>
             {wallet && (
               <Button variant="ghost" size="sm" onClick={() => setView('history')}>
@@ -129,6 +134,7 @@ export function MiraApp() {
             {view === 'attack' && <AttackMIRA />}
             {view === 'experiment' && <ExperimentResults />}
             {view === 'comparison' && <ABComparison />}
+            {view === 'guided' && <GuidedDemo />}
           </motion.div>
         </AnimatePresence>
       </main>
