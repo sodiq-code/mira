@@ -89,12 +89,12 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 
 | Contract | Address |
 |---|---|
-| MockUSDC (ERC-20) | [`0x4447e0C1845b03212a8e9A1d02AE9E0092056d1f`](https://cc3-testnet.creditcoin.network/address/0x4447e0C1845b03212a8e9A1d02AE9E0092056d1f) |
-| Policy | [`0x684b9a5bB7aC7923B15E7D490078db5c21317986`](https://cc3-testnet.creditcoin.network/address/0x684b9a5bB7aC7923B15E7D490078db5c21317986) |
-| AgentReputation | [`0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46`](https://cc3-testnet.creditcoin.network/address/0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46) |
-| BorrowerReputation | [`0x18919cc60fC52d9077599A306C72b7B48423ed0C`](https://cc3-testnet.creditcoin.network/address/0x18919cc60fC52d9077599A306C72b7B48423ed0C) |
-| LiquidityPool | [`0xF089D710474AA74199d98586EbFD2be3a7c6502C`](https://cc3-testnet.creditcoin.network/address/0xF089D710474AA74199d98586EbFD2be3a7c6502C) |
-| Loan | [`0x239E3f87192fC63E8e58688C07f2b6406B9A83a8`](https://cc3-testnet.creditcoin.network/address/0x239E3f87192fC63E8e58688C07f2b6406B9A83a8) |
+| MockUSDC (ERC-20) | [`0x4447e0C1845b03212a8e9A1d02AE9E0092056d1f`](https://creditcoin-testnet.blockscout.com/address/0x4447e0C1845b03212a8e9A1d02AE9E0092056d1f) |
+| Policy | [`0x684b9a5bB7aC7923B15E7D490078db5c21317986`](https://creditcoin-testnet.blockscout.com/address/0x684b9a5bB7aC7923B15E7D490078db5c21317986) |
+| AgentReputation | [`0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46`](https://creditcoin-testnet.blockscout.com/address/0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46) |
+| BorrowerReputation | [`0x18919cc60fC52d9077599A306C72b7B48423ed0C`](https://creditcoin-testnet.blockscout.com/address/0x18919cc60fC52d9077599A306C72b7B48423ed0C) |
+| LiquidityPool | [`0xF089D710474AA74199d98586EbFD2be3a7c6502C`](https://creditcoin-testnet.blockscout.com/address/0xF089D710474AA74199d98586EbFD2be3a7c6502C) |
+| Loan | [`0x239E3f87192fC63E8e58688C07f2b6406B9A83a8`](https://creditcoin-testnet.blockscout.com/address/0x239E3f87192fC63E8e58688C07f2b6406B9A83a8) |
 
 ## Verified on-chain state
 
@@ -112,7 +112,7 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 - Utilization: ~0.3% (5 outstanding loans)
 
 **Attestcoin verification (live):**
-- `TransactionVerified` event emitted on CC3 Testnet: [`0xa685eb0eb5fdcbeaae86655acaf8339d3662ecaa31933e31918d3b5fb88bde31`](https://cc3-testnet.creditcoin.network/extrinsic/0xa685eb0eb5fdcbeaae86655acaf8339d3662ecaa31933e31918d3b5fb88bde31)
+- `TransactionVerified` event emitted on CC3 Testnet: [`0xa685eb0eb5fdcbeaae86655acaf8339d3662ecaa31933e31918d3b5fb88bde31`](https://creditcoin-testnet.blockscout.com/tx/0xa685eb0eb5fdcbeaae86655acaf8339d3662ecaa31933e31918d3b5fb88bde31)
 - 5 real Sepolia transactions proven and verified via the BlockProver precompile
 
 **Real Sepolia financial activity:**
@@ -124,9 +124,9 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 
 **Real loan originated + repaid on CC3 Testnet:**
 - Loan #1: $25 at 5% APR for 7 days — originated via `Loan.originate()`, real ERC-20 tokens moved from the LiquidityPool to the borrower
-- Origin tx: [`0x89cc6d8d6c44acf5eb0c481c7f3c2577b32c49018104b524dee994efade43b99`](https://cc3-testnet.creditcoin.network/extrinsic/0x89cc6d8d6c44acf5eb0c481c7f3c2577b32c49018104b524dee994efade43b99)
+- Origin tx: [`0x89cc6d8d6c44acf5eb0c481c7f3c2577b32c49018104b524dee994efade43b99`](https://creditcoin-testnet.blockscout.com/tx/0x89cc6d8d6c44acf5eb0c481c7f3c2577b32c49018104b524dee994efade43b99)
 - Repaid via `Loan.markRepaid()` — real ERC-20 tokens moved back to the pool, AgentReputation updated on-chain
-- Repay tx: [`0xc79b734fd639e0f676d2c45aa04bb1085e9aabbb786e4488a89a62f8123b1f04`](https://cc3-testnet.creditcoin.network/extrinsic/0xc79b734fd639e0f676d2c45aa04bb1085e9aabbb786e4488a89a62f8123b1f04)
+- Repay tx: [`0xc79b734fd639e0f676d2c45aa04bb1085e9aabbb786e4488a89a62f8123b1f04`](https://creditcoin-testnet.blockscout.com/tx/0xc79b734fd639e0f676d2c45aa04bb1085e9aabbb786e4488a89a62f8123b1f04)
 
 **Reputation → capital authority progression (live on CC3 Testnet):**
 - 32+ loans originated, 20 repaid, 1 defaulted
@@ -140,10 +140,10 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 
 **Unfakeable reputation (contract-verified repayment):**
 
-The Loan contract does not trust the worker to verify repayments — it verifies the Attestcoin proof itself. `Loan.markRepaidWithProof` calls the BlockProver precompile ([`0x0000000000000000000000000000000000000FD2`](https://cc3-testnet.creditcoin.network/address/0x0000000000000000000000000000000000000FD2)) directly inside the same transaction that marks a loan repaid. A compromised worker key cannot fabricate a repayment because the contract re-runs the cryptographic verification on-chain.
+The Loan contract does not trust the worker to verify repayments — it verifies the Attestcoin proof itself. `Loan.markRepaidWithProof` calls the BlockProver precompile ([`0x0000000000000000000000000000000000000FD2`](https://creditcoin-testnet.blockscout.com/address/0x0000000000000000000000000000000000000FD2)) directly inside the same transaction that marks a loan repaid. A compromised worker key cannot fabricate a repayment because the contract re-runs the cryptographic verification on-chain.
 
 - Contract function: `Loan.markRepaidWithProof(loanId, proofHash, headerNumber, txBytes, merkleProof, continuityProof)` — the structured-tuple proof matches the precompile's canonical `verify(uint64,uint64,bytes,(bytes32,(bytes32,bool)[]),(bytes32,bytes32[]))` signature exactly.
-- Proof-verified repayment tx (real, on CC3 Testnet): [`0xff58b151530809facae16e70daf6029b8701f918a10d0df8bd936fd6f0eee45a`](https://cc3-testnet.creditcoin.network/extrinsic/0xff58b151530809facae16e70daf6029b8701f918a10d0df8bd936fd6f0eee45a)
+- Proof-verified repayment tx (real, on CC3 Testnet): [`0xff58b151530809facae16e70daf6029b8701f918a10d0df8bd936fd6f0eee45a`](https://creditcoin-testnet.blockscout.com/tx/0xff58b151530809facae16e70daf6029b8701f918a10d0df8bd936fd6f0eee45a)
   - Originated loan #1, generated an Attestcoin proof for a real Sepolia transaction, and called `markRepaidWithProof`. The contract's `staticCall` to the precompile returned `true` (proof verified on-chain), then the state-changing tx moved real ERC-20 tokens back to the pool and incremented the agent score 665 → 675 (+10).
   - Sepolia transaction proven: [`0xedd21116c18c96bff741f6545442b92ccb4f9fff42cb37df3e1aa22c1b10733c`](https://sepolia.etherscan.io/tx/0xedd21116c18c96bff741f6545442b92ccb4f9fff42cb37df3e1aa22c1b10733c)
 - The worker still runs a gasless `verifyReadonly` pre-check as a fast-fail defence, but the contract is the authoritative verifier — if the worker's key is compromised, it cannot mark a loan repaid without a real, attested Sepolia transaction.
@@ -221,8 +221,8 @@ Precompile addresses on CC3 Testnet:
 
 | Precompile | Address |
 |---|---|
-| BlockProver | [`0x0000000000000000000000000000000000000FD2`](https://cc3-testnet.creditcoin.network/address/0x0000000000000000000000000000000000000FD2) |
-| ChainInfo | [`0x0000000000000000000000000000000000000fd3`](https://cc3-testnet.creditcoin.network/address/0x0000000000000000000000000000000000000fd3) |
+| BlockProver | [`0x0000000000000000000000000000000000000FD2`](https://creditcoin-testnet.blockscout.com/address/0x0000000000000000000000000000000000000FD2) |
+| ChainInfo | [`0x0000000000000000000000000000000000000fd3`](https://creditcoin-testnet.blockscout.com/address/0x0000000000000000000000000000000000000fd3) |
 
 The long-form integration write-up lives in [`docs/attestcoin-integration.md`](./docs/attestcoin-integration.md).
 

@@ -271,7 +271,7 @@ async function main(): Promise<void> {
     readonlyVerification,
     onchainTxHash,
     cc3ExplorerTxUrl: onchainTxHash
-      ? `https://cc3-testnet.creditcoin.network/tx/${onchainTxHash}`
+      ? `https://creditcoin-testnet.blockscout.com/tx/${onchainTxHash}`
       : undefined,
   });
 

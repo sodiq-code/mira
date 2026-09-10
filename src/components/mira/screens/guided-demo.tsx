@@ -59,8 +59,8 @@ interface DemoStep {
   evidence?: EvidenceLink[];
 }
 
-const CC3_TX = (h: string) => `https://cc3-testnet.creditcoin.network/extrinsic/${h}`;
-const CC3_ADDR = (a: string) => `https://cc3-testnet.creditcoin.network/address/${a}`;
+const CC3_TX = (h: string) => `https://creditcoin-testnet.blockscout.com/tx/${h}`;
+const CC3_ADDR = (a: string) => `https://creditcoin-testnet.blockscout.com/address/${a}`;
 const SEPOLIA_TX = (h: string) => `https://sepolia.etherscan.io/tx/${h}`;
 
 const STEPS: DemoStep[] = [

@@ -7,8 +7,9 @@
  * the two surfaces a demo audience expects.
  */
 
-const CC3_EXPLORER_TX = 'https://cc3-testnet.creditcoin.network/extrinsic';
-const CC3_EXPLORER_BLOCK = 'https://cc3-testnet.creditcoin.network/block';
+const CC3_EXPLORER_TX = 'https://creditcoin-testnet.blockscout.com/tx';
+const CC3_EXPLORER_BLOCK = 'https://creditcoin-testnet.blockscout.com/block';
+const CC3_EXPLORER_ADDR = 'https://creditcoin-testnet.blockscout.com/address';
 const SEPOLIA_EXPLORER_TX = 'https://sepolia.etherscan.io/tx';
 const SEPOLIA_EXPLORER_ADDR = 'https://sepolia.etherscan.io/address';
 
@@ -18,6 +19,10 @@ export function cc3TxUrl(txHash: string): string {
 
 export function cc3BlockUrl(block: number | string): string {
   return `${CC3_EXPLORER_BLOCK}/${block}`;
+}
+
+export function cc3AddressUrl(address: string): string {
+  return `${CC3_EXPLORER_ADDR}/${address}`;
 }
 
 export function sepoliaTxUrl(txHash: string): string {
