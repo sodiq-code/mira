@@ -24,13 +24,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TxHash } from '@/components/mira/ui/tx-hash';
 import { VerifiedBadge } from '@/components/mira/ui/verified-badge';
 import { RadialGauge, RepaymentRateRing } from '@/components/mira/ui/radial-gauge';
 import { Sparkline } from '@/components/mira/ui/sparkline';
+import { ReputationLoansTable } from '@/components/mira/ui/reputation-loans-table';
 import { useMiraStore } from '@/lib/mira/store-client';
-import { cc3TxUrl, cc3BlockUrl } from '@/lib/mira/explorer';
-import type { LoanStatus } from '@mira/shared';
+import { cc3BlockUrl } from '@/lib/mira/explorer';
 
 const SCORE_MAX = 1000;
 
@@ -212,100 +211,8 @@ export function AgentReputationDashboard() {
             />
           </div>
 
-          {/* Recent loans */}
-          <Card className="mt-6">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">Recent loans</CardTitle>
-                <Badge variant="secondary" className="font-mono">
-                  {reputation.recentLoans.length} shown
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {reputation.recentLoans.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No loans yet. Be the first.
-                </p>
-              ) : (
-                <div className="max-h-96 overflow-y-auto pr-1">
-                  {/* Desktop: full table */}
-                  <table className="hidden w-full text-sm sm:table">
-                    <thead className="sticky top-0 bg-card text-left text-xs text-muted-foreground">
-                      <tr>
-                        <th className="pb-2 pr-3 font-medium">Loan</th>
-                        <th className="pb-2 pr-3 font-medium">Borrower</th>
-                        <th className="pb-2 pr-3 text-right font-medium">Amount</th>
-                        <th className="pb-2 pr-3 text-right font-medium">Rate</th>
-                        <th className="pb-2 pr-3 font-medium">Status</th>
-                        <th className="pb-2 font-medium">Block</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/50">
-                      {reputation.recentLoans.map((loan) => (
-                        <tr key={loan.loanId} className="text-xs">
-                          <td className="py-2.5 pr-3">
-                            <TxHash hash={loan.loanId} href={cc3TxUrl(loan.loanId)} copyable={false} />
-                          </td>
-                          <td className="py-2.5 pr-3 text-muted-foreground">
-                            {loan.borrowerLabel ?? loan.borrower.slice(0, 8) + '…'}
-                          </td>
-                          <td className="py-2.5 pr-3 text-right font-mono">${loan.amount}</td>
-                          <td className="py-2.5 pr-3 text-right font-mono">
-                            {loan.rate.toFixed(1)}%
-                          </td>
-                          <td className="py-2.5 pr-3">
-                            <StatusBadge status={loan.status} />
-                          </td>
-                          <td className="py-2.5 font-mono text-muted-foreground">
-                            #{loan.originatedBlock.toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-
-                  {/* Mobile: stacked cards */}
-                  <ul className="space-y-2 sm:hidden">
-                    {reputation.recentLoans.map((loan) => (
-                      <li
-                        key={loan.loanId}
-                        className="rounded-lg border border-border/60 bg-muted/20 p-3"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <TxHash
-                            hash={loan.loanId}
-                            href={cc3TxUrl(loan.loanId)}
-                            copyable={false}
-                          />
-                          <StatusBadge status={loan.status} />
-                        </div>
-                        <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-                          <div>
-                            <div className="text-muted-foreground">Borrower</div>
-                            <div className="truncate font-medium">
-                              {loan.borrowerLabel ?? loan.borrower.slice(0, 8) + '…'}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-muted-foreground">Amount</div>
-                            <div className="font-mono font-medium">${loan.amount}</div>
-                          </div>
-                          <div>
-                            <div className="text-muted-foreground">Rate</div>
-                            <div className="font-mono font-medium">{loan.rate.toFixed(1)}%</div>
-                          </div>
-                        </div>
-                        <div className="mt-2 text-[11px] font-mono text-muted-foreground">
-                          Block #{loan.originatedBlock.toLocaleString()}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* Recent loans — sortable + filterable table */}
+          <ReputationLoansTable loans={reputation.recentLoans} />
 
           <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Button variant="ghost" onClick={() => setView('landing')}>
@@ -382,22 +289,6 @@ function scoreVerdict(score: number, max: number): string {
   if (ratio >= 0.5) return 'Solid — the agent is dependable with room to grow.';
   if (ratio >= 0.3) return 'Developing — early history; repayments will lift this over time.';
   return 'Limited — insufficient history to support larger loans yet.';
-}
-
-function StatusBadge({ status }: { status: LoanStatus }) {
-  // Solid fills for stronger contrast than the outline variant — a status
-  // badge should read as a state signal, not a label.
-  const map: Record<LoanStatus, string> = {
-    Pending: 'bg-muted text-muted-foreground border-border',
-    Originated: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30',
-    Repaid: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30',
-    Defaulted: 'bg-destructive/15 text-destructive border-destructive/30',
-  };
-  return (
-    <Badge variant="outline" className={`text-[10px] font-semibold ${map[status]}`}>
-      {status}
-    </Badge>
-  );
 }
 
 function DashboardSkeleton() {

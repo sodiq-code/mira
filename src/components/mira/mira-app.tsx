@@ -15,11 +15,12 @@
  */
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, Award, RotateCcw, Github, History } from 'lucide-react';
+import { Home, Award, Github, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MiraWordmark } from '@/components/mira/ui/mira-mark';
 import { ThemeToggle } from '@/components/mira/ui/theme-toggle';
+import { WalletSwitcher } from '@/components/mira/ui/wallet-switcher';
 import { useMiraStore } from '@/lib/mira/store-client';
 import { Landing } from '@/components/mira/screens/landing';
 import { ConnectWallet } from '@/components/mira/screens/connect-wallet';
@@ -33,9 +34,7 @@ import { LoanHistory } from '@/components/mira/screens/loan-history';
 const EXT_REL = 'noopener noreferrer';
 
 export function MiraApp() {
-  const { view, wallet, resetFlow, setView } = useMiraStore();
-
-  const inFlow = view !== 'landing' && view !== 'reputation' && view !== 'history';
+  const { view, wallet, setView } = useMiraStore();
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -71,12 +70,7 @@ export function MiraApp() {
                 <span className="hidden sm:inline">My loans</span>
               </Button>
             )}
-            {inFlow && (
-              <Button variant="ghost" size="sm" onClick={resetFlow}>
-                <RotateCcw className="mr-1.5 h-4 w-4" />
-                <span className="hidden sm:inline">Restart</span>
-              </Button>
-            )}
+            <WalletSwitcher />
             <ThemeToggle />
             <Button variant="ghost" size="sm" asChild>
               <a
