@@ -5,6 +5,7 @@ import {Decision, LoanStatus} from "./types.sol";
 import {Policy} from "./Policy.sol";
 import {AgentReputation} from "./AgentReputation.sol";
 import {BorrowerReputation} from "./BorrowerReputation.sol";
+import {LiquidityPool} from "./LiquidityPool.sol";
 
 /**
  * Loan — the central lifecycle manager for all MIRA loans.
@@ -14,7 +15,13 @@ import {BorrowerReputation} from "./BorrowerReputation.sol";
  * and every originate is validated against the Policy contract first, so
  * an out-of-bounds LLM decision is rejected on-chain.
  *
- * State transitions (Section 24.3):
+ * Capital movement: origination calls LiquidityPool.fundLoan() to move
+ * real ERC-20 tokens from the pool to the borrower in the same transaction.
+ * Repayment calls LiquidityPool.repayToPool() to pull tokens back. This
+ * makes every loan a real transfer of value, not just a state-machine
+ * transition.
+ *
+ * State transitions:
  *   Pending → Originated → (Repaid | Defaulted)
  *
  * Only Originated is an active state. Repaid and Defaulted are terminal.
@@ -28,6 +35,7 @@ contract Loan {
     Policy public policy;
     AgentReputation public agentReputation;
     BorrowerReputation public borrowerReputation;
+    LiquidityPool public liquidityPool;
 
     // ─── Roles ──────────────────────────────────────────────────────────
 
@@ -82,13 +90,15 @@ contract Loan {
         address _worker,
         address _policy,
         address _agentReputation,
-        address _borrowerReputation
+        address _borrowerReputation,
+        address _liquidityPool
     ) {
         require(_worker != address(0), "Loan: worker is zero address");
         worker = _worker;
         policy = Policy(_policy);
         agentReputation = AgentReputation(_agentReputation);
         borrowerReputation = BorrowerReputation(_borrowerReputation);
+        liquidityPool = LiquidityPool(_liquidityPool);
         nextLoanId = 1;
     }
 
@@ -105,13 +115,15 @@ contract Loan {
      * Originate a new loan.
      *
      * The decision is validated against the Policy contract before any
-     * state is written — if the bounds are violated the transaction
-     * reverts with a descriptive reason. On success:
+     * state is written. On success:
      *   - the loan is stored with status Originated
-     *   - a due block is computed (term days × blocks-per-day estimate)
+     *   - a due block is computed
+     *   - LiquidityPool.fundLoan() moves real ERC-20 tokens to the borrower
      *   - the LoanOriginated event is emitted
-     *   - AgentReputation.recordLoan and BorrowerReputation.recordLoan
-     *     are called atomically
+     *   - AgentReputation + BorrowerReputation are updated atomically
+     *
+     * If the pool has insufficient liquidity, the transaction reverts —
+     * this is the "insufficient liquidity" adversarial check.
      *
      * @param borrower            the borrower's address
      * @param amount              USD cents
@@ -159,6 +171,11 @@ contract Loan {
             exists: true
         });
 
+        // Move real ERC-20 tokens from the pool to the borrower. If the
+        // pool has insufficient liquidity this reverts, rolling back the
+        // entire origination.
+        liquidityPool.fundLoan(loanId, amount, borrower);
+
         // Update reputation atomically — if either call fails, the whole
         // origination reverts, so reputation can never desync from loans.
         agentReputation.recordLoan(loanId);
@@ -173,13 +190,20 @@ contract Loan {
      * Mark a loan as repaid.
      *
      * Called by the worker after it has verified a repayment transaction
-     * via Attestcoin. The proof hash is stored on-chain so anyone can
-     * audit the repayment evidence.
+     * via Attestcoin. Moves real ERC-20 tokens from the borrower back to
+     * the pool via LiquidityPool.repayToPool(). The borrower must have
+     * approved the pool to spend the repayment amount.
+     *
+     * The proof hash is stored on-chain so anyone can audit the repayment
+     * evidence.
      */
     function markRepaid(uint256 loanId, bytes32 repaymentProofHash) external onlyWorker {
         LoanData storage loan = loans[loanId];
         require(loan.exists, "Loan: loan does not exist");
         require(loan.status == LoanStatus.Originated, "Loan: not originated");
+
+        // Pull real tokens back from the borrower into the pool.
+        liquidityPool.repayToPool(loanId, loan.amount, loan.borrower);
 
         loan.status = LoanStatus.Repaid;
         loan.repaidBlock = block.number;

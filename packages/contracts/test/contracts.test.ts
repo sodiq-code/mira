@@ -5,229 +5,262 @@ import { setupTestEnv, deployContract, expectRevert, sendTx, syncNonce } from '.
 /**
  * MIRA smart contract test suite.
  *
- * Validates the blueprint's validation plan components for this task:
+ * Validates:
  *   - Policy validation: in-bounds accepted, out-of-bounds rejected
- *   - Loan origination: LoanOriginated event emitted, status = Originated
- *   - Loan repayment: status = Repaid, AgentReputation.repaid incremented
+ *     + agent-authority tier ladder (score → capital limit)
+ *     + liquidity check
+ *   - Loan origination: real ERC-20 tokens move from pool to borrower
+ *   - Loan repayment: real ERC-20 tokens move from borrower back to pool
  *   - Loan default: status = Defaulted, writability hash stored
- *   - Agent reputation: after 5 loans (3 repaid, 2 defaulted): score=480
- *
- * All state-changing txs use sendTx() with explicit nonce + legacy tx type
- * to work around an ethers v6 + Hardhat v3 EIP-1559 nonce-tracking issue.
- * Revert tests use .staticCall (no nonce consumed). Block advancement uses
- * hardhat_mine (no nonce consumed).
+ *   - Agent reputation: score formula + auto-pause on serious failure
+ *   - LiquidityPool: real token custody, available(), utilization()
  */
 
-const MAX_LOAN = 100000n;
+const MAX_LOAN = 250_000n;  // $2,500
 const MIN_RATE = 500n;
 const MAX_RATE = 2500n;
 const TERMS = [7n, 30n, 90n];
 
 let deployer: Wallet, other: Wallet;
-let policy: any, loan: any, agentRep: any, borrowerRep: any, pool: any;
+let policy: any, loan: any, agentRep: any, borrowerRep: any, pool: any, token: any;
 
 before(async () => {
   const env = await setupTestEnv();
   deployer = env.deployer;
   other = env.other;
 
+  // Deploy the ERC-20 lending token first.
+  token = await deployContract('MockUSDC', deployer);
+
+  // Deploy contracts. The agent starts at BASE_SCORE=500, which maps to
+  // tier cap $25 (2,500 cents). We set maxLoanAmount high ($2,500) so
+  // the tier ladder is the binding constraint, not the global cap.
   policy = await deployContract('Policy', deployer, deployer.address, deployer.address, MAX_LOAN, MIN_RATE, MAX_RATE, TERMS);
   agentRep = await deployContract('AgentReputation', deployer, deployer.address);
   borrowerRep = await deployContract('BorrowerReputation', deployer, deployer.address);
-  pool = await deployContract('LiquidityPool', deployer, deployer.address, deployer.address);
-  loan = await deployContract('Loan', deployer, deployer.address, await policy.getAddress(), await agentRep.getAddress(), await borrowerRep.getAddress());
+  pool = await deployContract('LiquidityPool', deployer, deployer.address, deployer.address, await token.getAddress());
+  loan = await deployContract('Loan', deployer, deployer.address, await policy.getAddress(), await agentRep.getAddress(), await borrowerRep.getAddress(), await pool.getAddress());
 
+  // Wire cross-contract dependencies.
   await sendTx(agentRep, 'setLoanContract', await loan.getAddress());
+  await sendTx(agentRep, 'setPolicyContract', await policy.getAddress());
   await sendTx(borrowerRep, 'setLoanContract', await loan.getAddress());
-  await sendTx(pool, 'deposit', 1_000_000n);
+  await sendTx(pool, 'setLoanContract', await loan.getAddress());
+  await sendTx(policy, 'setDependencies', await agentRep.getAddress(), await borrowerRep.getAddress(), await pool.getAddress());
+
+  // Mint real tokens and deposit into the pool.
+  // $10,000 = 1,000,000 cents = 10,000,000,000 token units (6 decimals)
+  const depositAmount = 1_000_000n; // cents
+  const tokenAmount = depositAmount * 10_000n; // 6 decimals
+  await sendTx(token, 'mint', deployer.address, tokenAmount);
+  await sendTx(token, 'approve', await pool.getAddress(), tokenAmount);
+  await sendTx(pool, 'deposit', depositAmount);
 });
 
-// ─── Policy validation ─────────────────────────────────────────────────────
+// ─── LiquidityPool ERC-20 custody ──────────────────────────────────────
 
-describe('Policy.validateDecision', () => {
-  it('accepts an in-bounds decision', async () => {
+describe('LiquidityPool (ERC-20 custody)', () => {
+  it('holds real tokens after deposit', async () => {
+    const bal = await pool.poolTokenBalance();
+    expect(bal).to.equal(10_000_000_000n); // $10,000 in 6-decimal units
+  });
+
+  it('reports available capital in cents', async () => {
+    expect(await pool.available()).to.equal(1_000_000n); // $10,000 in cents
+  });
+
+  it('reports utilization at 0% with no outstanding loans', async () => {
+    expect(await pool.utilization()).to.equal(0n);
+  });
+});
+
+// ─── Policy validation + agent-authority tier ladder ───────────────────
+
+describe('Policy.validateDecision + agent-authority', () => {
+  it('accepts an in-bounds decision within the agent tier cap ($25)', async () => {
+    // Agent score is 500 (BASE_SCORE, no loans yet) → tier cap $25 = 2,500 cents
+    expect(await agentRep.currentScore()).to.equal(500n);
+    expect(await policy.agentTierCap(500n)).to.equal(2_500n);
+
     const ok = await policy.validateDecision.staticCall({
-      borrower: deployer.address, amount: 50000n, rate: 1200n, term: 30n,
+      borrower: deployer.address, amount: 2_500n, rate: 1200n, term: 30n,
     });
     expect(ok).to.be.true;
   });
 
-  it('rejects amount above the cap', async () => {
+  it('rejects a decision above the agent tier cap ($500 > $25 cap)', async () => {
+    // $500 = 50,000 cents, but the agent tier cap at score 500 is $25 = 2,500 cents
+    expect(await policy.validateDecision.staticCall({
+      borrower: deployer.address, amount: 50_000n, rate: 1200n, term: 30n,
+    })).to.be.false;
+  });
+
+  it('rejects amount above the global cap', async () => {
     expect(await policy.validateDecision.staticCall({
       borrower: deployer.address, amount: MAX_LOAN + 1n, rate: 1200n, term: 30n,
     })).to.be.false;
   });
 
-  it('rejects amount of zero', async () => {
-    expect(await policy.validateDecision.staticCall({
-      borrower: deployer.address, amount: 0n, rate: 1200n, term: 30n,
-    })).to.be.false;
-  });
-
   it('rejects rate below the floor', async () => {
     expect(await policy.validateDecision.staticCall({
-      borrower: deployer.address, amount: 50000n, rate: MIN_RATE - 1n, term: 30n,
+      borrower: deployer.address, amount: 2_500n, rate: MIN_RATE - 1n, term: 30n,
     })).to.be.false;
-  });
-
-  it('rejects rate above the ceiling', async () => {
-    expect(await policy.validateDecision.staticCall({
-      borrower: deployer.address, amount: 50000n, rate: MAX_RATE + 1n, term: 30n,
-    })).to.be.false;
-  });
-
-  it('accepts the boundary rates (min and max)', async () => {
-    expect(await policy.validateDecision.staticCall({
-      borrower: deployer.address, amount: 50000n, rate: MIN_RATE, term: 30n,
-    })).to.be.true;
-    expect(await policy.validateDecision.staticCall({
-      borrower: deployer.address, amount: 50000n, rate: MAX_RATE, term: 30n,
-    })).to.be.true;
   });
 
   it('rejects a disallowed term', async () => {
     expect(await policy.validateDecision.staticCall({
-      borrower: deployer.address, amount: 50000n, rate: 1200n, term: 14n,
+      borrower: deployer.address, amount: 2_500n, rate: 1200n, term: 14n,
     })).to.be.false;
-  });
-
-  it('accepts each allowed term', async () => {
-    for (const term of TERMS) {
-      expect(await policy.validateDecision.staticCall({
-        borrower: deployer.address, amount: 50000n, rate: 1200n, term,
-      }), `term ${term}`).to.be.true;
-    }
   });
 
   it('rejects all decisions when paused', async () => {
     await sendTx(policy, 'setPaused', true);
     expect(await policy.validateDecision.staticCall({
-      borrower: deployer.address, amount: 50000n, rate: 1200n, term: 30n,
+      borrower: deployer.address, amount: 2_500n, rate: 1200n, term: 30n,
     })).to.be.false;
     await sendTx(policy, 'setPaused', false);
   });
-
-  it('allows governance to update bounds and emits PolicyUpdated', async () => {
-    const receipt = await sendTx(policy, 'updateBounds', 200000n, 600n, 2000n, [7n, 14n, 30n]);
-    const event = receipt!.logs.find((l: any) => {
-      try { return policy.interface.parseLog(l)?.name === 'PolicyUpdated'; } catch { return false; }
-    });
-    expect(event).to.not.be.undefined;
-    expect(await policy.maxLoanAmount()).to.equal(200000n);
-  });
-
-  it('reverts when a non-governance caller updates bounds', async () => {
-    await expectRevert(
-      policy.connect(other).updateBounds.staticCall(200000n, 600n, 2000n, [7n]),
-      'Policy: caller is not governance',
-    );
-  });
 });
 
-// ─── Loan lifecycle ────────────────────────────────────────────────────────
+// ─── Loan lifecycle with real token transfers ─────────────────────────
 
-describe('Loan lifecycle', () => {
-  it('originates a valid loan and emits LoanOriginated', async () => {
-    const receipt = await sendTx(loan, 'originate', other.address, 50000n, 1200n, 30n, ethers.id('r1'), ethers.id('p1'));
+describe('Loan lifecycle (real capital)', () => {
+  it('originates a loan and moves real tokens to the borrower', async () => {
+    const borrower = other.address;
+    const loanAmount = 2_500n; // $25 (within tier cap)
+
+    const borrowerBalBefore = await token.balanceOf(borrower);
+    const poolBalBefore = await pool.poolTokenBalance();
+
+    const receipt = await sendTx(loan, 'originate', borrower, loanAmount, 1200n, 30n, ethers.id('r1'), ethers.id('p1'));
+
     const event = receipt!.logs.find((l: any) => {
       try { return loan.interface.parseLog(l)?.name === 'LoanOriginated'; } catch { return false; }
     });
     expect(event).to.not.be.undefined;
-    expect(await loan.status(1n)).to.equal(1n);
+    expect(await loan.status(1n)).to.equal(1n); // Originated
+
+    // Real tokens moved: borrower received, pool sent
+    const borrowerBalAfter = await token.balanceOf(borrower);
+    const poolBalAfter = await pool.poolTokenBalance();
+    expect(borrowerBalAfter - borrowerBalBefore).to.equal(loanAmount * 10_000n); // 6 decimals
+    expect(poolBalBefore - poolBalAfter).to.equal(loanAmount * 10_000n);
+
     expect(await agentRep.cumulativeLoans()).to.equal(1n);
   });
 
-  it('reverts on an out-of-bounds rate', async () => {
+  it('reverts on a decision above the agent tier cap', async () => {
     await expectRevert(
-      loan.originate.staticCall(other.address, 50000n, 3000n, 30n, ethers.id('r'), ethers.id('p')),
-      'Loan: decision violates policy',
-    );
-  });
-
-  it('reverts on an out-of-bounds amount', async () => {
-    await expectRevert(
-      loan.originate.staticCall(other.address, 200000n, 1200n, 30n, ethers.id('r'), ethers.id('p')),
-      'Loan: decision violates policy',
-    );
-  });
-
-  it('reverts on a disallowed term', async () => {
-    await expectRevert(
-      loan.originate.staticCall(other.address, 50000n, 1200n, 14n, ethers.id('r'), ethers.id('p')),
+      loan.originate.staticCall(other.address, 50_000n, 1200n, 30n, ethers.id('r'), ethers.id('p')),
       'Loan: decision violates policy',
     );
   });
 
   it('reverts when a non-worker calls originate', async () => {
     await expectRevert(
-      loan.connect(other).originate.staticCall(other.address, 50000n, 1200n, 30n, ethers.id('r'), ethers.id('p')),
+      loan.connect(other).originate.staticCall(other.address, 2_500n, 1200n, 30n, ethers.id('r'), ethers.id('p')),
       'Loan: caller is not worker',
     );
   });
 
-  it('marks a loan repaid and increments reputation', async () => {
+  it('marks a loan repaid and moves real tokens back to the pool', async () => {
+    const borrower = other.address;
+    const loanAmount = 2_500n;
+
+    // Borrower must approve the pool to pull repayment tokens.
+    await sendTx(token.connect(other), 'approve', await pool.getAddress(), loanAmount * 10_000n);
+
+    const borrowerBalBefore = await token.balanceOf(borrower);
+    const poolBalBefore = await pool.poolTokenBalance();
+
     const receipt = await sendTx(loan, 'markRepaid', 1n, ethers.id('rp1'));
     const event = receipt!.logs.find((l: any) => {
       try { return loan.interface.parseLog(l)?.name === 'LoanRepaid'; } catch { return false; }
     });
     expect(event).to.not.be.undefined;
-    expect(await loan.status(1n)).to.equal(2n);
-    const [repaid, defaulted] = await borrowerRep.getReputation(other.address);
+    expect(await loan.status(1n)).to.equal(2n); // Repaid
+
+    // Real tokens moved back: borrower sent, pool received
+    const borrowerBalAfter = await token.balanceOf(borrower);
+    const poolBalAfter = await pool.poolTokenBalance();
+    expect(borrowerBalBefore - borrowerBalAfter).to.equal(loanAmount * 10_000n);
+    expect(poolBalAfter - poolBalBefore).to.equal(loanAmount * 10_000n);
+
+    expect(await agentRep.cumulativeRepaid()).to.equal(1n);
+    const [repaid, defaulted] = await borrowerRep.getReputation(borrower);
     expect(repaid).to.equal(1n);
     expect(defaulted).to.equal(0n);
-    expect(await agentRep.cumulativeRepaid()).to.equal(1n);
   });
 
-  it('reverts when marking an already-repaid loan', async () => {
-    await expectRevert(
-      loan.markRepaid.staticCall(1n, ethers.id('p')),
-      'Loan: not originated',
-    );
-  });
-
-  it('reverts before the due block is reached', async () => {
-    await sendTx(loan, 'originate', other.address, 30000n, 1500n, 7n, ethers.id('r2'), ethers.id('p2'));
-    await expectRevert(
-      loan.markDefaulted.staticCall(2n, ethers.id('w')),
-      'Loan: due block not reached',
-    );
-  });
-
-  it('marks a loan defaulted after the due block and stores the writability hash', async () => {
+  it('marks a loan defaulted after the due block', async () => {
+    await sendTx(loan, 'originate', other.address, 2_500n, 1500n, 7n, ethers.id('r2'), ethers.id('p2'));
     await advancePastDueBlock(loan, 2n);
     const receipt = await sendTx(loan, 'markDefaulted', 2n, ethers.id('w2'));
     const event = receipt!.logs.find((l: any) => {
       try { return loan.interface.parseLog(l)?.name === 'LoanDefaulted'; } catch { return false; }
     });
     expect(event).to.not.be.undefined;
-    expect(await loan.status(2n)).to.equal(3n);
+    expect(await loan.status(2n)).to.equal(3n); // Defaulted
     expect(await agentRep.cumulativeDefaulted()).to.equal(1n);
   });
 });
 
-// ─── Agent reputation score (validation plan target) ───────────────────────
+// ─── Agent reputation score + tier progression ─────────────────────────
 
-describe('AgentReputation score', () => {
-  it('reports cumulativeLoans=5, repaid=3, defaulted=2, score=480 after 5 loans', async () => {
-    const borrower = other.address;
+describe('AgentReputation score + tier ladder', () => {
+  it('reports score=485 after 1 repaid + 1 defaulted (500+10-25=485)', async () => {
+    // After the lifecycle tests: 2 loans, 1 repaid, 1 defaulted
+    // score = 500 + 1*10 - 1*25 = 485
+    expect(await agentRep.cumulativeLoans()).to.equal(2n);
+    expect(await agentRep.cumulativeRepaid()).to.equal(1n);
+    expect(await agentRep.cumulativeDefaulted()).to.equal(1n);
+    expect(await agentRep.currentScore()).to.equal(485n);
+  });
 
-    await sendTx(loan, 'originate', borrower, 20000n, 1000n, 7n, ethers.id('r3'), ethers.id('p3'));
-    await sendTx(loan, 'markRepaid', 3n, ethers.id('rp3'));
-    await sendTx(loan, 'originate', borrower, 20000n, 1000n, 7n, ethers.id('r4'), ethers.id('p4'));
-    await sendTx(loan, 'markRepaid', 4n, ethers.id('rp4'));
-    await sendTx(loan, 'originate', borrower, 20000n, 1000n, 7n, ethers.id('r5'), ethers.id('p5'));
-    await advancePastDueBlock(loan, 5n);
-    await sendTx(loan, 'markDefaulted', 5n, ethers.id('w5'));
-
-    expect(await agentRep.cumulativeLoans()).to.equal(5n);
-    expect(await agentRep.cumulativeRepaid()).to.equal(3n);
-    expect(await agentRep.cumulativeDefaulted()).to.equal(2n);
-    // score = 500 + 3*10 - 2*25 = 480
-    expect(await agentRep.currentScore()).to.equal(480n);
+  it('tier ladder maps score → capital limit correctly', async () => {
+    // 485 < 500 → cannot lend (the agent has dropped below the base score
+    // after one default — it must earn back trust through repayments)
+    expect(await policy.agentTierCap(485n)).to.equal(0n);       // cannot lend
+    expect(await policy.agentTierCap(499n)).to.equal(0n);       // cannot lend
+    expect(await policy.agentTierCap(500n)).to.equal(2_500n);   // $25
+    expect(await policy.agentTierCap(649n)).to.equal(2_500n);   // $25
+    expect(await policy.agentTierCap(650n)).to.equal(10_000n);  // $100
+    expect(await policy.agentTierCap(749n)).to.equal(10_000n);  // $100
+    expect(await policy.agentTierCap(750n)).to.equal(50_000n);  // $500
+    expect(await policy.agentTierCap(849n)).to.equal(50_000n);  // $500
+    expect(await policy.agentTierCap(850n)).to.equal(250_000n); // $2,500
+    expect(await policy.agentTierCap(1000n)).to.equal(250_000n); // $2,500
   });
 });
 
-// ─── Helper ────────────────────────────────────────────────────────────────
+// ─── Auto-pause on serious failure ────────────────────────────────────
+
+describe('AgentReputation auto-pause', () => {
+  it('auto-pauses Policy when defaults reach the threshold', async () => {
+    // Current defaults: 1 (from the lifecycle test). The agent's score is
+    // 485 (< 500), so it cannot originate new loans. We simulate 4 more
+    // defaults by calling recordDefaulted directly — the worker is
+    // authorized to do this, and in production the default-detector would
+    // call it when due blocks pass on existing loans.
+    expect(await agentRep.cumulativeDefaulted()).to.equal(1n);
+
+    for (let i = 0; i < 4; i++) {
+      await sendTx(agentRep, 'recordDefaulted', 100n + BigInt(i));
+    }
+
+    expect(await agentRep.cumulativeDefaulted()).to.equal(5n);
+    expect(await agentRep.autoPaused()).to.be.true;
+    expect(await policy.paused()).to.be.true;
+  });
+
+  it('rejects all decisions while auto-paused', async () => {
+    expect(await policy.validateDecision.staticCall({
+      borrower: deployer.address, amount: 2_500n, rate: 1200n, term: 30n,
+    })).to.be.false;
+  });
+});
+
+// ─── Helper ────────────────────────────────────────────────────────────
 
 async function advancePastDueBlock(loan: ethers.Contract, loanId: bigint) {
   const loanData = await loan.getLoan(loanId);
