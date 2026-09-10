@@ -31,7 +31,8 @@ export type FlowView =
   | 'reputation'
   | 'history'
   | 'attack'
-  | 'experiment';
+  | 'experiment'
+  | 'comparison';
 
 export interface WalletState {
   address: string;
