@@ -22,7 +22,44 @@ export interface DemoBorrower {
   factors: VerifiedFactors;
   /** Sepolia transaction hashes that "backed" the factors (for proof links). */
   evidenceTxHashes: string[];
+  /** True when the factors are from a real Attestcoin-verified credit-check (not synthetic). */
+  realVerification?: boolean;
 }
+
+/**
+ * A real Sepolia wallet with Attestcoin-verified financial activity.
+ *
+ * This wallet (0xB47Ba...) has 5 real Sepolia transactions (MockUSDC
+ * deploy + mint + 3 token transfers) that were proven via the Attestcoin
+ * ProofBuilder and verified by the BlockProver precompile on CC3 Testnet.
+ * The factors below are from the actual credit-check run — not synthetic.
+ *
+ * demoMode is false for this wallet because the data is genuinely verified.
+ */
+const VERIFIED_SEPOLIA_WALLET: DemoBorrower = {
+  address: '0xB47Ba223B73980E69AEF53B0d202F9785698DAEa',
+  label: 'Verified Sepolia wallet',
+  description:
+    'Real Sepolia wallet with 5 Attestcoin-verified transactions. The factors below are from an actual credit-check run — every transaction was proven via the Attestcoin ProofBuilder and verified by the BlockProver precompile on CC3 Testnet.',
+  factors: {
+    walletAgeDays: 1,
+    txCount90d: 5,
+    stablecoinVolume90d: 10750,
+    defiPositionCount: 1,
+    priorMiraLoans: 0,
+    priorMiraRepaid: 0,
+    priorMiraDefaulted: 0,
+  },
+  evidenceTxHashes: [
+    '0xedd21116c18c96bff741f6545442b92ccb4f9fff42cb37df3e1aa22c1b10733c',
+    '0xd7c508f054a95d7b355068a4afdf36815cd290dff47256df494762aded85631f',
+    '0x93ee5e89dc54ec51731ce55f121b43a92c395e499f140bc1165f909103ccfa0f',
+    '0x843fdc3454e5ea4230803091a740737f6cab3ca514e9325cd4b40fe4275d25ee',
+    '0x0a9f1766992f563a7932692278dde4d862184c26e0ca6bc9227a034b446cbc82',
+  ],
+  /** This wallet uses real Attestcoin-verified data, not synthetic demo data. */
+  realVerification: true,
+};
 
 /**
  * A well-seasoned borrower: 18-month-old wallet, strong stablecoin volume,
@@ -118,6 +155,7 @@ const PRIOR_DEFAULT_BORROWER: DemoBorrower = {
 };
 
 export const DEMO_BORROWERS: DemoBorrower[] = [
+  VERIFIED_SEPOLIA_WALLET,
   RICH_BORROWER,
   RETURNING_BORROWER,
   FRESH_WALLET,

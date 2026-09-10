@@ -58,15 +58,17 @@ export async function POST(request: Request) {
 
   // A wallet is "verified" only if it has enough activity to underwrite.
   // This mirrors the hard-decline rules in the agent + Policy contract.
+  // For real Attestcoin-verified wallets, the wallet-age check is relaxed
+  // (the wallet may be new but the transactions are cryptographically proven).
   const verified =
-    factors.walletAgeDays >= MIN_WALLET_AGE_DAYS &&
+    (factors.walletAgeDays >= MIN_WALLET_AGE_DAYS || demoBorrower?.realVerification) &&
     factors.stablecoinVolume90d >= MIN_STABLECOIN_VOLUME_90D;
 
   const response: CreditCheckResponse = {
     verified,
     factors,
     proofTxHashes,
-    demoMode: true,
+    demoMode: !demoBorrower?.realVerification,
   };
 
   return NextResponse.json(response, {

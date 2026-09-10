@@ -117,6 +117,29 @@ Precompile addresses on CC3 Testnet:
 
 The long-form integration write-up lives in [`docs/attestcoin-integration.md`](./docs/attestcoin-integration.md).
 
+## Deployed contracts (CC3 Testnet)
+
+All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent reputation and liquidity pool are read live by the frontend.
+
+| Contract | Address |
+|---|---|
+| MockUSDC (ERC-20) | `0x4447e0C1845b03212a8e9A1d02AE9E0092056d1f` |
+| Policy | `0x684b9a5bB7aC7923B15E7D490078db5c21317986` |
+| AgentReputation | `0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46` |
+| BorrowerReputation | `0x18919cc60fC52d9077599A306C72b7B48423ed0C` |
+| LiquidityPool | `0xF089D710474AA74199d98586EbFD2be3a7c6502C` |
+| Loan | `0x1fde0767b1588752A35e95ffba32641F22e51853` |
+
+**Verified on-chain state:**
+- Agent score: 500 (BASE_SCORE — fresh agent, $25 lending authority)
+- LiquidityPool: $10,000 USDC deposited and available
+- A live `TransactionVerified` event was emitted on CC3 Testnet: `0xa685eb0eb5fdcbeaae86655acaf8339d3662ecaa31933e31918d3b5fb88bde31`
+
+**Real Sepolia financial activity verified via Attestcoin:**
+- Wallet `0xB47Ba223B73980E69AEF53B0d202F9785698DAEa` has 5 real Sepolia transactions
+- All 5 were proven via the Attestcoin ProofBuilder and verified by the BlockProver precompile
+- Verified factors: `txCount90d=5`, `stablecoinVolume90d=$10,750`, `demoMode=false`
+
 ## Borrower flow
 
 The Next.js frontend (`src/`) implements the end-to-end borrower journey as a single linear flow, with every transaction hash surfaced as a clickable explorer link.

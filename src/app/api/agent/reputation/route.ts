@@ -6,22 +6,69 @@
  * updated. Also returns the most recent loans so the dashboard can render
  * a live activity feed.
  *
- * In production this reads directly from the AgentReputation contract on
- * Creditcoin CC3 Testnet (cumulativeLoans / cumulativeRepaid /
- * cumulativeDefaulted / currentScore view functions). Here we read from
- * the demo store.
+ * When the AGENT_REPUTATION_ADDRESS env var is set, this reads directly
+ * from the deployed AgentReputation contract on Creditcoin CC3 Testnet.
+ * When it is not set, it falls back to the in-memory demo store.
  */
 
 import { NextResponse } from 'next/server';
 import type { AgentReputationResponse } from '@mira/shared';
 import { getAgentReputation, getRecentLoans } from '@/lib/mira/store';
+import { readOnChainAgentReputation, readOnChainLiquidityPool } from '@/lib/mira/on-chain';
 
 export async function GET() {
-  const rep = getAgentReputation();
+  // Try the real on-chain contract first.
+  const onChainRep = await readOnChainAgentReputation();
+  const onChainPool = await readOnChainLiquidityPool();
   const recentLoans = getRecentLoans(10);
 
+  if (onChainRep) {
+    // Real on-chain data is available — use it.
+    const response: AgentReputationResponse & {
+      recentLoans: ReturnType<typeof getRecentLoans>;
+      onChain: boolean;
+      contractAddress: string;
+      autoPaused: boolean;
+      capitalAuthority: number;
+      liquidityPool?: {
+        available: number;
+        totalDeposits: number;
+        tokenBalance: number;
+        utilization: number;
+        contractAddress: string;
+      };
+    } = {
+      cumulativeLoans: onChainRep.cumulativeLoans,
+      cumulativeRepaid: onChainRep.cumulativeRepaid,
+      cumulativeDefaulted: onChainRep.cumulativeDefaulted,
+      currentScore: onChainRep.currentScore,
+      lastUpdatedBlock: onChainRep.lastUpdatedBlock,
+      recentLoans,
+      onChain: true,
+      contractAddress: onChainRep.contractAddress,
+      autoPaused: onChainRep.autoPaused,
+      capitalAuthority: onChainRep.capitalAuthority,
+      liquidityPool: onChainPool
+        ? {
+            available: onChainPool.available,
+            totalDeposits: onChainPool.totalDeposits,
+            tokenBalance: onChainPool.tokenBalance,
+            utilization: onChainPool.utilization,
+            contractAddress: onChainPool.contractAddress,
+          }
+        : undefined,
+    };
+
+    return NextResponse.json(response, {
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  }
+
+  // Fall back to the demo store.
+  const rep = getAgentReputation();
   const response: AgentReputationResponse & {
     recentLoans: ReturnType<typeof getRecentLoans>;
+    onChain: boolean;
   } = {
     cumulativeLoans: rep.cumulativeLoans,
     cumulativeRepaid: rep.cumulativeRepaid,
@@ -29,6 +76,7 @@ export async function GET() {
     currentScore: rep.currentScore,
     lastUpdatedBlock: rep.lastUpdatedBlock,
     recentLoans,
+    onChain: false,
   };
 
   return NextResponse.json(response, {
