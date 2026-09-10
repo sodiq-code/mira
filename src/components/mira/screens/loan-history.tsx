@@ -25,13 +25,22 @@ import {
   TrendingDown,
   RefreshCw,
   Inbox,
+  ArrowDownWideNarrow,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { TxHash } from '@/components/mira/ui/tx-hash';
 import { VerifiedBadge } from '@/components/mira/ui/verified-badge';
+import { ExportMenu } from '@/components/mira/ui/export-menu';
 import { useMiraStore } from '@/lib/mira/store-client';
 import { cc3TxUrl } from '@/lib/mira/explorer';
 import type { LoanStatus } from '@mira/shared';
@@ -69,6 +78,9 @@ export function LoanHistory() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | LoanStatus>('all');
+  const [sort, setSort] = useState<'recent' | 'amount-desc' | 'amount-asc' | 'rate-desc' | 'rate-asc'>(
+    'recent',
+  );
 
   async function load() {
     if (!wallet) return;
@@ -98,9 +110,25 @@ export function LoanHistory() {
 
   const filtered = useMemo(() => {
     if (!data) return [];
-    if (filter === 'all') return data.loans;
-    return data.loans.filter((l) => l.status === filter);
-  }, [data, filter]);
+    let rows = data.loans;
+    if (filter !== 'all') rows = rows.filter((l) => l.status === filter);
+    const sorted = [...rows].sort((a, b) => {
+      switch (sort) {
+        case 'amount-desc':
+          return b.amount - a.amount;
+        case 'amount-asc':
+          return a.amount - b.amount;
+        case 'rate-desc':
+          return b.rate - a.rate;
+        case 'rate-asc':
+          return a.rate - b.rate;
+        case 'recent':
+        default:
+          return b.originatedBlock - a.originatedBlock;
+      }
+    });
+    return sorted;
+  }, [data, filter, sort]);
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-14">
@@ -126,10 +154,35 @@ export function LoanHistory() {
               history feeds straight back into your next credit decision.
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-            <RefreshCw className={`mr-2 h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            {data && data.loans.length > 0 && (
+              <ExportMenu
+                rows={data.loans.map((l) => ({
+                  loanId: l.loanId,
+                  status: l.status,
+                  amount: l.amount,
+                  rate: l.rate,
+                  term: l.term,
+                  originatedBlock: l.originatedBlock,
+                  dueBlock: l.dueBlock,
+                  originTxHash: l.originTxHash,
+                  repaymentTxHash: l.repaymentTxHash ?? '',
+                  writabilityTxHash: l.writabilityTxHash ?? '',
+                  createdAt: l.createdAt,
+                }))}
+                data={{
+                  walletAddress: data.walletAddress,
+                  borrowerReputation: data.borrowerReputation,
+                  loans: data.loans,
+                }}
+                filenamePrefix="mira-loan-history"
+              />
+            )}
+            <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+              <RefreshCw className={`mr-2 h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+          </div>
         </div>
       </motion.div>
 
@@ -176,38 +229,53 @@ export function LoanHistory() {
         </div>
       )}
 
-      {/* Filter pills */}
+      {/* Filter pills + sort */}
       {data && data.loans.length > 0 && (
-        <div className="mt-6 flex flex-wrap gap-2">
-          {FILTERS.map((f) => {
-            const count =
-              f.key === 'all'
-                ? data.loans.length
-                : data.loans.filter((l) => l.status === f.key).length;
-            const active = filter === f.key;
-            return (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => setFilter(f.key)}
-                aria-pressed={active}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  active
-                    ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                    : 'border-border text-muted-foreground hover:border-emerald-500/40 hover:text-foreground'
-                }`}
-              >
-                {f.label}
-                <span
-                  className={`rounded-full px-1.5 text-[10px] ${
-                    active ? 'bg-emerald-500/20' : 'bg-muted'
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            {FILTERS.map((f) => {
+              const count =
+                f.key === 'all'
+                  ? data.loans.length
+                  : data.loans.filter((l) => l.status === f.key).length;
+              const active = filter === f.key;
+              return (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => setFilter(f.key)}
+                  aria-pressed={active}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    active
+                      ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                      : 'border-border text-muted-foreground hover:border-emerald-500/40 hover:text-foreground'
                   }`}
                 >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+                  {f.label}
+                  <span
+                    className={`rounded-full px-1.5 text-[10px] ${
+                      active ? 'bg-emerald-500/20' : 'bg-muted'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
+            <SelectTrigger className="h-8 w-[150px] text-xs" aria-label="Sort loans">
+              <ArrowDownWideNarrow className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">Most recent</SelectItem>
+              <SelectItem value="amount-desc">Amount: high → low</SelectItem>
+              <SelectItem value="amount-asc">Amount: low → high</SelectItem>
+              <SelectItem value="rate-desc">Rate: high → low</SelectItem>
+              <SelectItem value="rate-asc">Rate: low → high</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       )}
 

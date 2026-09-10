@@ -27,53 +27,54 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { VerifiedBadge } from '@/components/mira/ui/verified-badge';
 import { RadialGauge, RepaymentRateRing } from '@/components/mira/ui/radial-gauge';
 import { Sparkline } from '@/components/mira/ui/sparkline';
+import { AreaChart, type AreaChartPoint } from '@/components/mira/ui/area-chart';
 import { ReputationLoansTable } from '@/components/mira/ui/reputation-loans-table';
+import { ExportMenu } from '@/components/mira/ui/export-menu';
 import { useMiraStore } from '@/lib/mira/store-client';
 import { cc3BlockUrl } from '@/lib/mira/explorer';
 
 const SCORE_MAX = 1000;
 
+interface ActivityResponse {
+  series: Array<{ bucket: number; cumulative: number; delta: number }>;
+  statusBreakdown: { originated: number; repaid: number; defaulted: number };
+  window: { fromBlock: number; toBlock: number; buckets: number };
+  fetchedAt: string;
+}
+
 export function AgentReputationDashboard() {
   const { reputation, reputationLoading, loadReputation, setView, resetFlow } = useMiraStore();
   const [activitySeries, setActivitySeries] = useState<number[]>([]);
+  const [activityPoints, setActivityPoints] = useState<AreaChartPoint[]>([]);
+  const [activityMeta, setActivityMeta] = useState<ActivityResponse | null>(null);
 
   useEffect(() => {
     void loadReputation();
   }, [loadReputation]);
 
-  // Fetch the loan-activity sparkline series from the agent reputation
-  // endpoint's recent-loans window — computed server-side so the chart
-  // matches the table below it.
+  // Fetch the dedicated activity series + status breakdown from
+  // /api/agent/activity so the chart spans the full loan history rather
+  // than the recent-loans window the reputation endpoint returns.
   useEffect(() => {
     let active = true;
-    fetch('/api/agent/reputation', { cache: 'no-store' })
+    fetch('/api/agent/activity', { cache: 'no-store' })
       .then((r) => r.json())
-      .then((data) => {
-        if (!active || !data?.recentLoans) return;
-        // Reconstruct a cumulative series from the recent-loans block heights.
-        const loans = [...data.recentLoans].sort(
-          (a: { originatedBlock: number }, b: { originatedBlock: number }) =>
-            a.originatedBlock - b.originatedBlock,
-        );
-        if (loans.length === 0) {
-          setActivitySeries([0]);
-          return;
-        }
-        const min = loans[0].originatedBlock;
-        const max = loans[loans.length - 1].originatedBlock;
-        const span = Math.max(1, max - min);
-        const buckets = 12;
-        const size = span / buckets;
-        const series = new Array(buckets).fill(0);
-        for (const l of loans) {
-          const idx = Math.min(buckets - 1, Math.floor((l.originatedBlock - min) / size));
-          series[idx] += 1;
-        }
-        for (let i = 1; i < series.length; i++) series[i] += series[i - 1];
-        if (active) setActivitySeries(series);
+      .then((data: ActivityResponse) => {
+        if (!active || !data?.series) return;
+        const spark = data.series.map((p) => p.cumulative);
+        const points: AreaChartPoint[] = data.series.map((p, i) => ({
+          label: i === 0 ? 'Start' : i === data.series.length - 1 ? 'Now' : `Bucket ${i + 1}`,
+          value: p.cumulative,
+        }));
+        setActivitySeries(spark);
+        setActivityPoints(points);
+        setActivityMeta(data);
       })
       .catch(() => {
-        if (active) setActivitySeries([0]);
+        if (active) {
+          setActivitySeries([0]);
+          setActivityPoints([]);
+        }
       });
     return () => {
       active = false;
@@ -103,10 +104,38 @@ export function AgentReputationDashboard() {
               updates an on-chain ledger the agent cannot tamper with.
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => void loadReputation()}>
-            <RefreshCw className={`mr-2 h-3.5 w-3.5 ${reputationLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            {reputation && (
+              <ExportMenu
+                rows={reputation.recentLoans.map((l) => ({
+                  loanId: l.loanId,
+                  borrower: l.borrowerLabel ?? l.borrower,
+                  amount: l.amount,
+                  rate: l.rate,
+                  term: l.term,
+                  status: l.status,
+                  originatedBlock: l.originatedBlock,
+                  dueBlock: l.dueBlock,
+                }))}
+                data={{
+                  agent: {
+                    cumulativeLoans: reputation.cumulativeLoans,
+                    cumulativeRepaid: reputation.cumulativeRepaid,
+                    cumulativeDefaulted: reputation.cumulativeDefaulted,
+                    currentScore: reputation.currentScore,
+                    lastUpdatedBlock: reputation.lastUpdatedBlock,
+                  },
+                  activity: activityMeta,
+                  loans: reputation.recentLoans,
+                }}
+                filenamePrefix="mira-reputation"
+              />
+            )}
+            <Button variant="outline" size="sm" onClick={() => void loadReputation()}>
+              <RefreshCw className={`mr-2 h-3.5 w-3.5 ${reputationLoading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+          </div>
         </div>
       </motion.div>
 
@@ -211,6 +240,53 @@ export function AgentReputationDashboard() {
             />
           </div>
 
+          {/* Activity trend — a real chart (not just a sparkline) */}
+          <Card className="mt-6">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Activity trend</CardTitle>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Cumulative loans originated over the agent&apos;s history.
+                  </p>
+                </div>
+                <Badge variant="secondary" className="font-mono">
+                  {activityMeta ? `${activityMeta.window.buckets} buckets` : '…'}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {activityPoints.length > 0 ? (
+                <AreaChart
+                  data={activityPoints}
+                  ariaLabel="Cumulative loan activity over time"
+                  height={200}
+                />
+              ) : (
+                <Skeleton className="h-[200px] w-full" />
+              )}
+              {activityMeta && (
+                <div className="mt-4 grid grid-cols-3 gap-3 border-t border-border/50 pt-4 text-center">
+                  <TrendStat
+                    label="Active"
+                    value={activityMeta.statusBreakdown.originated}
+                    tone="amber"
+                  />
+                  <TrendStat
+                    label="Repaid"
+                    value={activityMeta.statusBreakdown.repaid}
+                    tone="emerald"
+                  />
+                  <TrendStat
+                    label="Defaulted"
+                    value={activityMeta.statusBreakdown.defaulted}
+                    tone="red"
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Recent loans — sortable + filterable table */}
           <ReputationLoansTable loans={reputation.recentLoans} />
 
@@ -305,6 +381,34 @@ function DashboardSkeleton() {
           </CardContent>
         </Card>
       ))}
+    </div>
+  );
+}
+
+/** A compact stat for the activity-trend breakdown row. */
+function TrendStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: 'emerald' | 'amber' | 'red';
+}) {
+  const color =
+    tone === 'emerald'
+      ? 'text-emerald-600'
+      : tone === 'red' && value > 0
+        ? 'text-destructive'
+        : tone === 'amber' && value > 0
+          ? 'text-amber-600'
+          : 'text-foreground';
+  return (
+    <div>
+      <div className={`font-mono text-lg font-semibold ${color}`}>{value}</div>
+      <div className="mt-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
     </div>
   );
 }
