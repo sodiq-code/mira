@@ -95,6 +95,11 @@ export function AgentReputationDashboard() {
               className="mb-3 border-emerald-500/40 bg-emerald-500/[0.04] text-emerald-600"
             >
               On-chain reputation
+              {(reputation as any)?.onChain && (
+                <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-700 dark:text-emerald-400">
+                  Live contract
+                </span>
+              )}
             </Badge>
             <h1 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
               MIRA&apos;s track record
@@ -203,6 +208,72 @@ export function AgentReputationDashboard() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Capital authority + liquidity pool (on-chain) */}
+          {(reputation as any).onChain && (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <Card className="border-emerald-500/30 bg-emerald-500/[0.02]">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-semibold">Capital authority</span>
+                    <VerifiedBadge label="On-chain" />
+                  </div>
+                  <div className="font-mono text-2xl font-bold text-emerald-600">
+                    ${(((reputation as any).capitalAuthority ?? 0) / 100).toFixed(2)}
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Maximum loan the agent is trusted to originate, based on its reputation score.
+                  </p>
+                  <div className="mt-3 flex items-center gap-2 text-xs">
+                    {(reputation as any).autoPaused ? (
+                      <Badge variant="outline" className="border-destructive/40 text-destructive">
+                        Auto-paused
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="border-emerald-500/40 text-emerald-600">
+                        Active
+                      </Badge>
+                    )}
+                    <span className="text-muted-foreground">
+                      Tier: score {reputation.currentScore} → {' '}
+                      {reputation.currentScore >= 850 ? '$2,500' :
+                       reputation.currentScore >= 750 ? '$500' :
+                       reputation.currentScore >= 650 ? '$100' :
+                       reputation.currentScore >= 500 ? '$25' : '$0'}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {(reputation as any).liquidityPool && (
+                <Card>
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-semibold">Liquidity pool</span>
+                      <Badge variant="outline" className="border-emerald-500/30 text-emerald-600">
+                        ERC-20 custodian
+                      </Badge>
+                    </div>
+                    <div className="font-mono text-2xl font-bold">
+                      ${(((reputation as any).liquidityPool.available ?? 0) / 100).toLocaleString()}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Available capital backed by real ERC-20 token custody.
+                    </p>
+                    <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>
+                        Deposits: ${(((reputation as any).liquidityPool.totalDeposits ?? 0) / 100).toLocaleString()}
+                      </span>
+                      <span>·</span>
+                      <span>
+                        Utilization: {Number((reputation as any).liquidityPool.utilization ?? 0) / 100}%
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
 
           {/* Cumulative activity sparkline + counts */}
           <div className="mt-4 grid gap-4 sm:grid-cols-3">

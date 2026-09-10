@@ -242,6 +242,11 @@ function DemoWalletRow({
               {hint.tag}
             </span>
           )}
+          {borrower.realVerification && (
+            <span className="inline-flex items-center rounded-full border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0 text-[9px] font-bold uppercase text-emerald-700 dark:text-emerald-400">
+              Real Attestcoin
+            </span>
+          )}
         </span>
         <span className="mt-0.5 block truncate font-mono text-xs text-muted-foreground">
           {shortenHash(borrower.address, 5, 4)}
