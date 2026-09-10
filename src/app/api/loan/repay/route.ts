@@ -24,7 +24,6 @@ import {
 } from '@/lib/mira/store';
 import { synthesizeOriginTxHash } from '@/lib/mira/proofs';
 import { repayLoan, readAgentReputation } from '@/lib/mira/loan-client';
-import { repayLoanWithProof } from '@/lib/mira/repay-proof';
 import { ethers } from 'ethers';
 
 const LOAN_ADDRESS = process.env.LOAN_ADDRESS;
@@ -74,7 +73,10 @@ export async function POST(request: Request) {
       let result;
       let proofVerified = false;
       if (sepoliaRepayTx && /^0x[a-fA-F0-9]{64}$/.test(sepoliaRepayTx)) {
-        // The contract verifies the proof on-chain.
+        // The contract verifies the proof on-chain. Dynamic import keeps
+        // the @gluwa/usc-sdk (a Node-only dependency) out of the client
+        // bundle so it cannot break browser hydration.
+        const { repayLoanWithProof } = await import('@/lib/mira/repay-proof');
         const proofResult = await repayLoanWithProof(Number(loanId), sepoliaRepayTx);
         result = { repayTxHash: proofResult.repayTxHash };
         proofVerified = true;
