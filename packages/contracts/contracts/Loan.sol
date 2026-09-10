@@ -6,6 +6,7 @@ import {Policy} from "./Policy.sol";
 import {AgentReputation} from "./AgentReputation.sol";
 import {BorrowerReputation} from "./BorrowerReputation.sol";
 import {LiquidityPool} from "./LiquidityPool.sol";
+import {IBlockProverPrecompile} from "./IBlockProver.sol";
 
 /**
  * Loan — the central lifecycle manager for all MIRA loans.
@@ -186,16 +187,74 @@ contract Loan {
 
     // ─── Repayment ─────────────────────────────────────────────────────
 
+    /// The BlockProver precompile address on CC3 Testnet.
+    address public constant BLOCK_PROVER = 0x0000000000000000000000000000000000000FD2;
+
+    /// The Sepolia chain key on CC3 Testnet.
+    uint256 public constant SEPOLIA_CHAIN_KEY = 1;
+
     /**
-     * Mark a loan as repaid.
+     * Mark a loan as repaid with on-chain Attestcoin proof verification.
      *
-     * Called by the worker after it has verified a repayment transaction
-     * via Attestcoin. Moves real ERC-20 tokens from the borrower back to
-     * the pool via LiquidityPool.repayToPool(). The borrower must have
-     * approved the pool to spend the repayment amount.
+     * This is the trust-anchor version: the Loan contract itself calls
+     * the BlockProver precompile to verify the repayment proof, so a
+     * compromised worker key cannot fabricate a repayment. The proof
+     * must correspond to a real Sepolia transaction that has been
+     * attested by Creditcoin.
      *
-     * The proof hash is stored on-chain so anyone can audit the repayment
-     * evidence.
+     * @param loanId           The loan to mark repaid
+     * @param repaymentProofHash  keccak256 of the proof data (for audit trail)
+     * @param headerNumber     The attested Sepolia block height
+     * @param txBytes          The raw repayment transaction bytes
+     * @param merkleProof      The Merkle inclusion proof
+     * @param continuityProof  The continuity proof
+     */
+    function markRepaidWithProof(
+        uint256 loanId,
+        bytes32 repaymentProofHash,
+        uint256 headerNumber,
+        bytes calldata txBytes,
+        bytes calldata merkleProof,
+        bytes calldata continuityProof
+    ) external onlyWorker {
+        LoanData storage loan = loans[loanId];
+        require(loan.exists, "Loan: loan does not exist");
+        require(loan.status == LoanStatus.Originated, "Loan: not originated");
+
+        // ─── The on-chain trust anchor ───────────────────────────────
+        // The BlockProver precompile verifies that the repayment transaction
+        // is real and attested. This is the line that makes MIRA's
+        // reputation unfakeable: the contract, not the worker, verifies
+        // the proof. A compromised worker cannot fabricate a repayment.
+        bool verified = IBlockProverPrecompile(BLOCK_PROVER).verifySingle(
+            SEPOLIA_CHAIN_KEY,
+            headerNumber,
+            txBytes,
+            merkleProof,
+            continuityProof
+        );
+        require(verified, "Loan: Attestcoin proof verification failed");
+
+        // Pull real tokens back from the borrower into the pool.
+        liquidityPool.repayToPool(loanId, loan.amount, loan.borrower);
+
+        loan.status = LoanStatus.Repaid;
+        loan.repaidBlock = block.number;
+        loan.repaymentProofHash = repaymentProofHash;
+
+        agentReputation.recordRepaid(loanId);
+        borrowerReputation.recordRepaid(loan.borrower);
+
+        emit LoanRepaid(loanId, block.number, repaymentProofHash);
+    }
+
+    /**
+     * Mark a loan as repaid (worker-trusted version).
+     *
+     * This version trusts the worker's off-chain verification. It exists
+     * for backward compatibility and for cases where the full proof
+     * struct is not available (e.g. demo mode). In production,
+     * markRepaidWithProof should be used instead.
      */
     function markRepaid(uint256 loanId, bytes32 repaymentProofHash) external onlyWorker {
         LoanData storage loan = loans[loanId];
