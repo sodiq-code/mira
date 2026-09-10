@@ -26,6 +26,7 @@ import {
   CheckCircle2,
   XCircle,
   ArrowLeft,
+  Fingerprint,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -57,6 +58,14 @@ const ATTACKS: AttackDef[] = [
     title: 'Fake repayment proof',
     description: 'A fabricated repayment proof hash is submitted for a non-existent loan.',
     expectedResult: 'Loan contract reverts: loan does not exist',
+    accent: 'red',
+  },
+  {
+    id: 'fabricated-proof',
+    icon: Fingerprint,
+    title: 'Fabricated Attestcoin proof',
+    description: 'A fabricated proof is submitted to markRepaidWithProof. The Loan contract calls the BlockProver precompile itself to verify — a compromised worker key cannot fabricate a repayment.',
+    expectedResult: 'Contract reverts: Attestcoin proof verification failed',
     accent: 'red',
   },
   {
@@ -143,10 +152,11 @@ export function AttackMIRA() {
           We don&apos;t trust the AI.
         </h1>
         <p className="mt-3 max-w-2xl text-muted-foreground">
-          Five attacks against MIRA. Each one submits a malicious or invalid input to the
+          Six attacks against MIRA. Each one submits a malicious or invalid input to the
           on-chain Policy and Loan contracts. Every attack is rejected — the agent cannot
-          approve a loan above its tier cap, accept a fake proof, bind the wrong borrower,
-          use expired evidence, or draw more capital than the pool holds.
+          approve a loan above its tier cap, accept a fake proof, fabricate an Attestcoin
+          repayment proof, bind the wrong borrower, use expired evidence, or draw more
+          capital than the pool holds.
         </p>
       </motion.div>
 

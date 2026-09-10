@@ -94,20 +94,20 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 | AgentReputation | `0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46` |
 | BorrowerReputation | `0x18919cc60fC52d9077599A306C72b7B48423ed0C` |
 | LiquidityPool | `0xF089D710474AA74199d98586EbFD2be3a7c6502C` |
-| Loan | `0x1fde0767b1588752A35e95ffba32641F22e51853` |
+| Loan | `0x239E3f87192fC63E8e58688C07f2b6406B9A83a8` |
 
 ## Verified on-chain state
 
 **Agent reputation (live from CC3 Testnet):**
-- Current score: 655 (base 500 + 18 repaid × 10 − 1 default × 25)
-- Cumulative loans: 24
-- Cumulative repaid: 18
+- Current score: 675 (base 500 + 20 repaid × 10 − 1 default × 25)
+- Cumulative loans: 28+ (grows with live demo use; origination does not change the score)
+- Cumulative repaid: 20
 - Cumulative defaulted: 1
 - Capital authority: $100.00 (restored after recovery from default)
 - Auto-paused: false
 
 **Liquidity pool (real ERC-20 custody):**
-- Available capital: ~$9,967 USDC (real tokens lent out via 20 originated loans, 15 repaid)
+- Available capital: ~$9,740 USDC (real tokens lent out via originated loans)
 - Total deposits: $10,000 USDC
 - Utilization: ~0.3% (5 outstanding loans)
 
@@ -127,14 +127,24 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 - Repay tx: `0xc79b734fd639e0f676d2c45aa04bb1085e9aabbb786e4488a89a62f8123b1f04`
 
 **Reputation → capital authority progression (live on CC3 Testnet):**
-- 24 loans originated, 18 repaid, 1 defaulted
-- Score progression: 500 → 510 → 640 → 650 → 625 → **655**
-- Capital authority progression: $25 → $25 → $25 → **$100** → **$25** → **$100**
+- 28+ loans originated, 20 repaid, 1 defaulted
+- Score progression: 500 → 510 → 640 → 650 → 625 → 655 → 665 → **675**
+- Capital authority progression: $25 → $25 → $25 → **$100** → **$25** → **$100** → **$100**
 - The complete feedback loop, proven on-chain:
-  - $25 → $100: earned via 15 verified repayments (score crossed 650)
+  - $25 → $100: earned via verified repayments (score crossed 650)
   - $100 → $25: lost via 1 verified default (score dropped to 625)
-  - $25 → $100: earned back via 3 more verified repayments (score crossed 650 again)
+  - $25 → $100: earned back via more verified repayments (score crossed 650 again)
 - The agent earned, lost, and re-earned the right to manage capital — all through its own on-chain track record, no human intervention.
+
+**Unfakeable reputation (contract-verified repayment):**
+
+The Loan contract does not trust the worker to verify repayments — it verifies the Attestcoin proof itself. `Loan.markRepaidWithProof` calls the BlockProver precompile (`0x…0FD2`) directly inside the same transaction that marks a loan repaid. A compromised worker key cannot fabricate a repayment because the contract re-runs the cryptographic verification on-chain.
+
+- Contract function: `Loan.markRepaidWithProof(loanId, proofHash, headerNumber, txBytes, merkleProof, continuityProof)` — the structured-tuple proof matches the precompile's canonical `verify(uint64,uint64,bytes,(bytes32,(bytes32,bool)[]),(bytes32,bytes32[]))` signature exactly.
+- Proof-verified repayment tx (real, on CC3 Testnet): `0xff58b151530809facae16e70daf6029b8701f918a10d0df8bd936fd6f0eee45a`
+  - Originated loan #1, generated an Attestcoin proof for a real Sepolia transaction, and called `markRepaidWithProof`. The contract's `staticCall` to the precompile returned `true` (proof verified on-chain), then the state-changing tx moved real ERC-20 tokens back to the pool and incremented the agent score 665 → 675 (+10).
+  - Sepolia transaction proven: `0xedd21116c18c96bff741f6545442b92ccb4f9fff42cb37df3e1aa22c1b10733c`
+- The worker still runs a gasless `verifyReadonly` pre-check as a fast-fail defence, but the contract is the authoritative verifier — if the worker's key is compromised, it cannot mark a loan repaid without a real, attested Sepolia transaction.
 
 ## Agent-authority tier ladder
 
@@ -152,17 +162,18 @@ When cumulative defaults reach 5, the AgentReputation contract automatically cal
 
 ## Adversarial demo: Attack MIRA
 
-Five attacks, each proving a different on-chain rejection path. The headline: **"We don't trust the AI."**
+Six attacks, each proving a different on-chain rejection path. The headline: **"We don't trust the AI."**
 
 | Attack | Input | Rejection path | Result |
 |---|---|---|---|
 | Malicious LLM | $10,000 @ 1% APR | Policy.validateDecision | REJECTED: exceeds tier cap + below rate floor |
 | Fake repayment | Fabricated proof hash | Loan.markRepaid | REJECTED: loan does not exist |
+| Fabricated proof | Fake Attestcoin proof struct | Loan.markRepaidWithProof → BlockProver.verify | REJECTED: Merkle proof validation failed (contract verifies on-chain) |
 | Wrong borrower | Valid decision, wrong address | Attestcoin proof verification | REJECTED: borrower binding mismatch |
 | Expired evidence | Old attestation proof | BlockProver precompile | REJECTED: stale block reference |
 | Insufficient liquidity | Excessive amount | Policy.validateDecision | REJECTED: exceeds available pool capital |
 
-Each attack calls the real on-chain contracts (gasless `staticCall`) and returns the actual revert reason.
+Each attack calls the real on-chain contracts (gasless `staticCall`) and returns the actual revert reason. The **Fabricated proof** attack is the strongest: it originates a real loan, then submits a fabricated Attestcoin proof to `markRepaidWithProof`. The Loan contract calls the BlockProver precompile itself — the precompile rejects the fabricated Merkle proof, and the contract reverts. A compromised worker key cannot fabricate a repayment.
 
 ## AI measurability experiment
 
@@ -261,9 +272,10 @@ The request/response shapes are defined in [`packages/shared/src/types.ts`](./pa
 | `bun run lint` | Lint the whole monorepo |
 | `bun run worker:validate` | Run the Attestcoin end-to-end feasibility check |
 | `bun run worker:dev` | Start the worker |
-| `bun run contracts:compile` | Compile the Solidity contracts |
-| `bun run contracts:deploy` | Deploy contracts to CC3 Testnet (via Hardhat) |
-| `bun run deploy-contracts` | Deploy contracts to CC3 Testnet (standalone, via bun) |
+| `bun run contracts:compile` | Compile the Solidity contracts (solc, emits artifacts) |
+| `bun run contracts:redeploy-loan` | Redeploy only the Loan contract (preserves reputation + pool state) |
+| `bun run contracts:repay-with-proof` | Run a real proof-verified repayment on CC3 Testnet |
+| `bun run contracts:deploy` | Deploy all contracts to CC3 Testnet (via Hardhat) |
 
 ## License
 

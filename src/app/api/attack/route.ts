@@ -147,6 +147,110 @@ export async function POST(request: Request) {
         }
       }
 
+      case 'fabricated-proof': {
+        // The strongest attack: originate a REAL loan, then submit a
+        // fabricated Attestcoin proof to markRepaidWithProof. The Loan
+        // contract calls the BlockProver precompile ITSELF — the
+        // precompile rejects the fabricated proof and the contract
+        // reverts with "Loan: Attestcoin proof verification failed".
+        //
+        // This proves the contract — not the worker — is the trust
+        // anchor. Even with a compromised worker key, a repayment cannot
+        // be recorded without a real, attested Sepolia transaction.
+        const loanAbi = [
+          'function originate(address borrower, uint256 amount, uint256 rate, uint256 term, bytes32 decisionReasoningHash, bytes32 attestationProofHash) returns (uint256)',
+          'function nextLoanId() view returns (uint256)',
+          'function markRepaidWithProof(uint256 loanId, bytes32 repaymentProofHash, uint256 headerNumber, bytes txBytes, (bytes32 root, (bytes32 hash, bool isLeft)[] siblings) merkleProof, (bytes32 lowerEndpointDigest, bytes32[] roots) continuityProof) external',
+          'event LoanOriginated(address indexed borrower, uint256 indexed loanId, uint256 amount, uint256 rate, uint256 term, uint256 dueBlock, bytes32 attestationProofHash)',
+        ];
+        const loan = new Contract(LOAN_ADDRESS, loanAbi, wallet);
+
+        // Read the agent's tier cap to pick a valid loan amount.
+        const score = agentRep ? Number(await agentRep.currentScore()) : 500;
+        const tierCap = Number(await policy.agentTierCap(score));
+        const attackAmount = tierCap > 0 ? BigInt(tierCap) : 2500n;
+
+        // 1. Originate a real loan so markRepaidWithProof has a valid target.
+        const nonceResp = await fetch(CC3_RPC, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_getTransactionCount', params: [wallet.address, 'latest'], id: 1 }),
+        });
+        const nonceJson = await nonceResp.json() as { result: string };
+        const nonce = parseInt(nonceJson.result, 16);
+
+        const origData = loan.interface.encodeFunctionData('originate', [
+          wallet.address, attackAmount, 500n, 7n,
+          ethers.id('fabricated-proof-attack'),
+          ethers.id('attestcoin-verified'),
+        ]);
+        const origTx = await wallet.sendTransaction({ to: LOAN_ADDRESS, data: origData, nonce, type: 0, gasLimit: 2_000_000 });
+        const origReceipt = await origTx.wait();
+        if (!origReceipt || origReceipt.status === 0) {
+          return NextResponse.json({
+            attack: 'fabricated-proof',
+            title: 'Fabricated Attestcoin proof',
+            description: 'A fabricated proof is submitted to markRepaidWithProof. The contract calls the BlockProver precompile itself to verify.',
+            expectedResult: 'Contract reverts: Attestcoin proof verification failed',
+            reverted: true,
+            reason: 'Could not originate a loan for the attack (pool may be low or policy paused)',
+          } as AttackResult, { headers: { 'Cache-Control': 'no-store' } });
+        }
+
+        const origEvent = origReceipt.logs
+          .map((l) => { try { return loan.interface.parseLog(l); } catch { return null; } })
+          .find((l) => l?.name === 'LoanOriginated');
+        const loanId = origEvent ? origEvent.args.loanId : 0n;
+
+        // 2. Fabricate a proof — random bytes that are NOT a real
+        //    Attestcoin inclusion proof for any Sepolia transaction.
+        const fabricatedMerkle = {
+          root: ethers.id('fabricated-merkle-root'),
+          siblings: [{ hash: ethers.id('fabricated-sibling'), isLeft: true }],
+        };
+        const fabricatedContinuity = {
+          lowerEndpointDigest: ethers.id('fabricated-endpoint'),
+          roots: [ethers.id('fabricated-root')],
+        };
+
+        try {
+          // staticCall — the contract calls the precompile, which
+          // returns false for the fabricated proof, triggering the
+          // explicit require revert. No gas spent; no state change.
+          await loan.markRepaidWithProof.staticCall(
+            loanId,
+            ethers.id('fabricated-proof-hash'),
+            1n,
+            '0xdeadbeef',
+            fabricatedMerkle,
+            fabricatedContinuity,
+          );
+          return NextResponse.json({
+            attack: 'fabricated-proof',
+            title: 'Fabricated Attestcoin proof',
+            description: 'A fabricated proof is submitted to markRepaidWithProof. The contract calls the BlockProver precompile itself to verify.',
+            expectedResult: 'Contract reverts: Attestcoin proof verification failed',
+            reverted: false,
+            reason: 'Unexpected: the fabricated proof was accepted',
+          } as AttackResult, { headers: { 'Cache-Control': 'no-store' } });
+        } catch (err: any) {
+          const reason = err?.shortMessage ?? err?.message ?? 'reverted';
+          return NextResponse.json({
+            attack: 'fabricated-proof',
+            title: 'Fabricated Attestcoin proof',
+            description: 'A fabricated proof is submitted to markRepaidWithProof. The contract calls the BlockProver precompile itself to verify — a compromised worker key cannot fabricate a repayment.',
+            expectedResult: 'Contract reverts: Attestcoin proof verification failed',
+            reverted: true,
+            reason,
+            details: {
+              loanId: Number(loanId),
+              originationTx: origReceipt.hash,
+              contractCall: 'Loan.markRepaidWithProof → BlockProver.verify (on-chain)',
+            },
+          } as AttackResult, { headers: { 'Cache-Control': 'no-store' } });
+        }
+      }
+
       case 'wrong-borrower': {
         // Attempt to originate a loan for a borrower that doesn't match
         // the verified evidence. The Policy validates the decision struct,
@@ -263,6 +367,14 @@ function simulateAttack(attack: string): AttackResult {
       expectedResult: 'Loan contract reverts: loan does not exist',
       reverted: true,
       reason: 'Loan: loan does not exist',
+    },
+    'fabricated-proof': {
+      attack: 'fabricated-proof',
+      title: 'Fabricated Attestcoin proof',
+      description: 'A fabricated proof is submitted to markRepaidWithProof. The contract calls the BlockProver precompile itself to verify.',
+      expectedResult: 'Contract reverts: Attestcoin proof verification failed',
+      reverted: true,
+      reason: 'Loan: Attestcoin proof verification failed',
     },
     'wrong-borrower': {
       attack: 'wrong-borrower',

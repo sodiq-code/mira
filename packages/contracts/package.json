@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Creditcoin smart contracts: policy bounds, loan lifecycle, and reputation ledgers.",
   "scripts": {
-    "compile": "hardhat compile",
+    "compile": "bun run scripts/compile.ts",
     "deploy": "hardhat run scripts/deploy.ts --network creditcoin_testnet",
     "test": "hardhat test",
     "clean": "hardhat clean"

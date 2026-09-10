@@ -65,6 +65,13 @@ export interface LoanApplyResponse {
 export interface LoanRepayRequest {
   loanId: string;
   repaymentTxHash: string;
+  /**
+   * Optional real Sepolia repayment transaction hash. When provided, the
+   * Loan contract verifies the Attestcoin inclusion proof on-chain via
+   * markRepaidWithProof — the contract (not the worker) is the trust
+   * anchor. When omitted, the worker-trusted markRepaid path is used.
+   */
+  sepoliaRepayTxHash?: string;
 }
 
 export interface BorrowerReputationSnapshot {

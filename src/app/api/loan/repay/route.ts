@@ -24,6 +24,7 @@ import {
 } from '@/lib/mira/store';
 import { synthesizeOriginTxHash } from '@/lib/mira/proofs';
 import { repayLoan, readAgentReputation } from '@/lib/mira/loan-client';
+import { repayLoanWithProof } from '@/lib/mira/repay-proof';
 import { ethers } from 'ethers';
 
 const LOAN_ADDRESS = process.env.LOAN_ADDRESS;
@@ -64,12 +65,27 @@ export async function POST(request: Request) {
       const repaymentTxHash =
         body?.repaymentTxHash?.trim() || ethers.id(`repay-${loanId}-${Date.now()}`);
 
-      const result = await repayLoan(
-        Number(loanId),
-        borrower,
-        amountCents,
-        repaymentTxHash,
-      );
+      // When a real Sepolia repayment transaction hash is provided, use the
+      // proof-verified path: the Loan contract ITSELF calls the BlockProver
+      // precompile to verify the proof on-chain. A compromised worker key
+      // cannot fabricate the repayment. When no Sepolia tx is available
+      // (demo flow), fall back to the worker-trusted markRepaid path.
+      const sepoliaRepayTx = body?.sepoliaRepayTxHash?.trim();
+      let result;
+      let proofVerified = false;
+      if (sepoliaRepayTx && /^0x[a-fA-F0-9]{64}$/.test(sepoliaRepayTx)) {
+        // The contract verifies the proof on-chain.
+        const proofResult = await repayLoanWithProof(Number(loanId), sepoliaRepayTx);
+        result = { repayTxHash: proofResult.repayTxHash };
+        proofVerified = true;
+      } else {
+        result = await repayLoan(
+          Number(loanId),
+          borrower,
+          amountCents,
+          repaymentTxHash,
+        );
+      }
 
       // Read updated reputation from the contract.
       const rep = await readAgentReputation();
@@ -89,9 +105,14 @@ export async function POST(request: Request) {
         verificationTxHash: result.repayTxHash,
       };
 
-      return NextResponse.json(response, {
-        headers: { 'Cache-Control': 'no-store' },
-      });
+      // Attach a header so the client knows whether the contract verified
+      // the proof on-chain (unfakeable) or the worker trusted it (demo).
+      const headers: Record<string, string> = { 'Cache-Control': 'no-store' };
+      if (proofVerified) {
+        headers['X-Proof-Verified'] = 'contract';
+      }
+
+      return NextResponse.json(response, { headers });
     } catch (err) {
       console.error('[loan/repay] On-chain repayment failed:', err);
       return NextResponse.json(

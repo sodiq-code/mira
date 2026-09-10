@@ -202,20 +202,27 @@ contract Loan {
      * must correspond to a real Sepolia transaction that has been
      * attested by Creditcoin.
      *
-     * @param loanId           The loan to mark repaid
+     * The proof components are passed as STRUCTURED TUPLES (not opaque
+     * bytes) so the Solidity ABI encoder produces the exact calldata the
+     * precompile's `verify(uint64,uint64,bytes,(bytes32,(bytes32,bool)[]),
+     * (bytes32,bytes32[]))` signature expects. Passing them as `bytes`
+     * would encode them as dynamic byte arrays, which the precompile
+     * cannot parse.
+     *
+     * @param loanId              The loan to mark repaid
      * @param repaymentProofHash  keccak256 of the proof data (for audit trail)
-     * @param headerNumber     The attested Sepolia block height
-     * @param txBytes          The raw repayment transaction bytes
-     * @param merkleProof      The Merkle inclusion proof
-     * @param continuityProof  The continuity proof
+     * @param headerNumber        The attested Sepolia block height
+     * @param txBytes             The raw repayment transaction bytes
+     * @param merkleProof         The Merkle inclusion proof (structured tuple)
+     * @param continuityProof     The continuity proof (structured tuple)
      */
     function markRepaidWithProof(
         uint256 loanId,
         bytes32 repaymentProofHash,
         uint256 headerNumber,
         bytes calldata txBytes,
-        bytes calldata merkleProof,
-        bytes calldata continuityProof
+        IBlockProverPrecompile.MerkleProof calldata merkleProof,
+        IBlockProverPrecompile.ContinuityProof calldata continuityProof
     ) external onlyWorker {
         LoanData storage loan = loans[loanId];
         require(loan.exists, "Loan: loan does not exist");
@@ -226,9 +233,14 @@ contract Loan {
         // is real and attested. This is the line that makes MIRA's
         // reputation unfakeable: the contract, not the worker, verifies
         // the proof. A compromised worker cannot fabricate a repayment.
-        bool verified = IBlockProverPrecompile(BLOCK_PROVER).verifySingle(
-            SEPOLIA_CHAIN_KEY,
-            headerNumber,
+        //
+        // The chainKey and headerNumber are cast to uint64 to match the
+        // precompile's canonical signature exactly (the selector is derived
+        // from the signature string, so uint256 would produce a different
+        // selector that the precompile rejects with "Unknown selector").
+        bool verified = IBlockProverPrecompile(BLOCK_PROVER).verify(
+            uint64(SEPOLIA_CHAIN_KEY),
+            uint64(headerNumber),
             txBytes,
             merkleProof,
             continuityProof

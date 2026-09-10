@@ -6,14 +6,21 @@
  *   1. The borrower makes a repayment transaction on Ethereum Sepolia
  *      (e.g. a USDC transfer to the protocol's treasury address)
  *   2. MIRA generates an Attestcoin inclusion proof for that tx
- *   3. MIRA verifies the proof via the BlockProver precompile (gasless)
- *   4. MIRA calls Loan.markRepaid(loanId, proofHash) on Creditcoin
- *   5. The Loan contract transitions Originated → Repaid and atomically
- *      increments AgentReputation.cumulativeRepaid and
+ *   3. MIRA verifies the proof via the BlockProver precompile (gasless
+ *      read) as a fast-fail defence — if the proof is malformed this
+ *      throws before any gas is spent
+ *   4. MIRA calls Loan.markRepaidWithProof(loanId, proofHash, headerNumber,
+ *      txBytes, merkleProof, continuityProof) on Creditcoin. The Loan
+ *      contract ITSELF calls the BlockProver precompile to re-verify the
+ *      proof on-chain — this is the trust anchor. A compromised worker
+ *      key cannot fabricate a repayment, because the contract verifies
+ *      the proof, not the worker.
+ *   5. On success the Loan contract transitions Originated → Repaid and
+ *      atomically increments AgentReputation.cumulativeRepaid and
  *      BorrowerReputation.repaidCount
  *
  * This closes the trust loop: the agent's reputation only improves when
- * a repayment is cryptographically proven, not merely asserted.
+ * a repayment is cryptographically proven AND verified by the contract.
  */
 
 import { ethers, type Wallet, type Contract } from 'ethers';
@@ -105,7 +112,7 @@ export async function verifyAndMarkRepaid(opts: {
     };
   }
 
-  // 3. Hash the proof data for on-chain storage
+  // 3. Hash the proof data for on-chain storage (audit trail)
   const proofHash = ethers.id(
     JSON.stringify({
       txHash: repaymentTxHash,
@@ -114,15 +121,24 @@ export async function verifyAndMarkRepaid(opts: {
     }),
   );
 
-  // 4. Call Loan.markRepaid(loanId, proofHash) on-chain
-  //    The Loan contract transitions Originated → Repaid and atomically
-  //    calls AgentReputation.recordRepaid and BorrowerReputation.recordRepaid.
+  // 4. Call Loan.markRepaidWithProof on-chain. The Loan contract ITSELF
+  //    calls the BlockProver precompile to verify the proof — this is the
+  //    trust anchor. The worker cannot fabricate a repayment because the
+  //    contract re-verifies the proof on-chain. The gasless read in step 2
+  //    was a fast-fail defence; the contract is the authoritative check.
   const wallet = loanContract.runner as Wallet;
   const nonce = await getNonce(wallet);
-  const data = loanContract.interface.encodeFunctionData('markRepaid', [BigInt(loanId), proofHash]);
+  const data = loanContract.interface.encodeFunctionData('markRepaidWithProof', [
+    BigInt(loanId),
+    proofHash,
+    BigInt(proof.headerNumber),
+    proof.txBytes,
+    proof.merkleProof,
+    proof.continuityProof,
+  ]);
   const to = await loanContract.getAddress();
 
-  const tx = await wallet.sendTransaction({ to, data, nonce, type: 0, gasLimit: 500_000 });
+  const tx = await wallet.sendTransaction({ to, data, nonce, type: 0, gasLimit: 2_000_000 });
   const receipt = await tx.wait();
 
   // Check for the LoanRepaid event

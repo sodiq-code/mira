@@ -96,6 +96,28 @@ export interface LoanRepaidEvent {
   repaymentProofHash: string;
 }
 
+/**
+ * The structured Attestcoin proof components that the Loan contract's
+ * markRepaidWithProof forwards to the BlockProver precompile.
+ *
+ * These mirror the on-chain IBlockProverPrecompile structs exactly so
+ * ethers ABI-encodes them into the tuple calldata the precompile expects.
+ */
+export interface MerkleProofInput {
+  root: string;
+  siblings: { hash: string; isLeft: boolean }[];
+}
+
+export interface ContinuityProofInput {
+  lowerEndpointDigest: string;
+  roots: string[];
+}
+
+export interface LoanRepayWithProofResult {
+  receipt: TransactionReceipt;
+  event: LoanRepaidEvent | null;
+}
+
 /** Parsed `LoanDefaulted` event from the mark-defaulted receipt. */
 export interface LoanDefaultedEvent {
   loanId: bigint;
@@ -146,6 +168,23 @@ export interface LoanClient {
     proofHash: string,
     signer: Signer,
   ): Promise<LoanRepayResult>;
+  /**
+   * Mark a loan repaid with on-chain Attestcoin proof verification.
+   *
+   * The Loan contract itself calls the BlockProver precompile to verify
+   * the repayment proof, so a compromised worker key cannot fabricate a
+   * repayment. The proof must correspond to a real Sepolia transaction
+   * attested by Creditcoin.
+   */
+  markRepaidWithProof(
+    loanId: bigint,
+    proofHash: string,
+    headerNumber: bigint,
+    txBytes: string,
+    merkleProof: MerkleProofInput,
+    continuityProof: ContinuityProofInput,
+    signer: Signer,
+  ): Promise<LoanRepayWithProofResult>;
   /** Mark a loan defaulted (only after the due block); emits `LoanDefaulted`. */
   markDefaulted(
     loanId: bigint,
@@ -374,6 +413,34 @@ export function createLoanClient(
     return { receipt, event };
   }
 
+  async function markRepaidWithProof(
+    loanId: bigint,
+    proofHash: string,
+    headerNumber: bigint,
+    txBytes: string,
+    merkleProof: MerkleProofInput,
+    continuityProof: ContinuityProofInput,
+    signer: Signer,
+  ): Promise<LoanRepayWithProofResult> {
+    const receipt = await sendWriteTx(
+      contract,
+      'markRepaidWithProof',
+      [loanId, proofHash, headerNumber, txBytes, merkleProof, continuityProof],
+      signer,
+    );
+
+    const args = findEvent(contract, receipt, 'LoanRepaid');
+    const event: LoanRepaidEvent | null = args
+      ? {
+          loanId: args.loanId as bigint,
+          repaidBlock: args.repaidBlock as bigint,
+          repaymentProofHash: args.repaymentProofHash as string,
+        }
+      : null;
+
+    return { receipt, event };
+  }
+
   async function markDefaulted(
     loanId: bigint,
     writabilityHash: string,
@@ -422,6 +489,7 @@ export function createLoanClient(
     policy,
     originate,
     markRepaid,
+    markRepaidWithProof,
     markDefaulted,
     status,
     getLoan,
