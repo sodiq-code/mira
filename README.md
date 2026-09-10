@@ -94,7 +94,7 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 | AgentReputation | [`0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46`](https://creditcoin-testnet.blockscout.com/address/0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46) |
 | BorrowerReputation | [`0x18919cc60fC52d9077599A306C72b7B48423ed0C`](https://creditcoin-testnet.blockscout.com/address/0x18919cc60fC52d9077599A306C72b7B48423ed0C) |
 | LiquidityPool | [`0xF089D710474AA74199d98586EbFD2be3a7c6502C`](https://creditcoin-testnet.blockscout.com/address/0xF089D710474AA74199d98586EbFD2be3a7c6502C) |
-| Loan | [`0xe946aD73E55371816818bBd245ad25dcd9192df0`](https://creditcoin-testnet.blockscout.com/address/0xe946aD73E55371816818bBd245ad25dcd9192df0) |
+| Loan | [`0x16562cCB54f91F0D1Cc4a4dAA155a991689bB4c4`](https://creditcoin-testnet.blockscout.com/address/0x16562cCB54f91F0D1Cc4a4dAA155a991689bB4c4) |
 
 ## Verified on-chain state
 

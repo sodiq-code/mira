@@ -54,9 +54,10 @@ contract Loan {
         uint256 repaidBlock;
         uint256 defaultBlock;
         bytes32 decisionReasoningHash;
-        bytes32 attestationProofHash;
+        bytes32 attestationProofHash;     // aggregate hash (keccak of factorProofHashes)
         bytes32 repaymentProofHash;
         bytes32 writabilityActionTxHash;
+        bytes32[] factorProofHashes;      // per-factor evidence chain
         LoanStatus status;
         bool exists;
     }
@@ -147,7 +148,8 @@ contract Loan {
         uint256 rate,
         uint256 term,
         bytes32 decisionReasoningHash,
-        bytes32 attestationProofHash
+        bytes32 attestationProofHash,
+        bytes32[] calldata factorProofHashes
     ) external onlyWorker returns (uint256 loanId) {
         // Build the full Decision struct for Policy validation. The nonce
         // is the borrower's current expected nonce; the expiry is set to
@@ -185,9 +187,16 @@ contract Loan {
             attestationProofHash: attestationProofHash,
             repaymentProofHash: bytes32(0),
             writabilityActionTxHash: bytes32(0),
+            factorProofHashes: new bytes32[](0),
             status: LoanStatus.Originated,
             exists: true
         });
+
+        // Store the per-factor proof hashes so each underwriting factor
+        // has its own on-chain evidence entry — not just a single
+        // aggregate hash. This makes the evidence chain auditable at the
+        // factor level.
+        loans[loanId].factorProofHashes = factorProofHashes;
 
         // Move real ERC-20 tokens from the pool to the borrower. If the
         // pool has insufficient liquidity this reverts, rolling back the
@@ -360,6 +369,17 @@ contract Loan {
             loan.status,
             loan.attestationProofHash
         );
+    }
+
+    /**
+     * Return the per-factor proof hashes stored at origination. Each
+     * entry is the keccak256 of one underwriting factor's Attestcoin
+     * proof data — so a judge can verify each factor's evidence
+     * independently, not just the aggregate.
+     */
+    function getFactorProofs(uint256 loanId) external view returns (bytes32[] memory) {
+        require(loans[loanId].exists, "Loan: loan does not exist");
+        return loans[loanId].factorProofHashes;
     }
 
     // ─── Constants ─────────────────────────────────────────────────────

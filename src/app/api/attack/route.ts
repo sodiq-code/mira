@@ -26,7 +26,7 @@ const POLICY_ADDRESS = process.env.POLICY_ADDRESS;
 const AGENT_REP_ADDRESS = process.env.AGENT_REPUTATION_ADDRESS;
 
 const LOAN_ABI = [
-  'function originate(address borrower, uint256 amount, uint256 rate, uint256 term, bytes32 decisionReasoningHash, bytes32 attestationProofHash) returns (uint256)',
+  'function originate(address borrower, uint256 amount, uint256 rate, uint256 term, bytes32 decisionReasoningHash, bytes32 attestationProofHash, bytes32[] factorProofHashes) returns (uint256)',
 ];
 const POLICY_ABI = [
   'function validateDecision((address borrower, uint256 amount, uint256 rate, uint256 term)) view returns (bool)',
@@ -158,7 +158,7 @@ export async function POST(request: Request) {
         // anchor. Even with a compromised worker key, a repayment cannot
         // be recorded without a real, attested Sepolia transaction.
         const loanAbi = [
-          'function originate(address borrower, uint256 amount, uint256 rate, uint256 term, bytes32 decisionReasoningHash, bytes32 attestationProofHash) returns (uint256)',
+          'function originate(address borrower, uint256 amount, uint256 rate, uint256 term, bytes32 decisionReasoningHash, bytes32 attestationProofHash, bytes32[] factorProofHashes) returns (uint256)',
           'function nextLoanId() view returns (uint256)',
           'function markRepaidWithProof(uint256 loanId, bytes32 repaymentProofHash, uint256 headerNumber, bytes txBytes, (bytes32 root, (bytes32 hash, bool isLeft)[] siblings) merkleProof, (bytes32 lowerEndpointDigest, bytes32[] roots) continuityProof) external',
           'event LoanOriginated(address indexed borrower, uint256 indexed loanId, uint256 amount, uint256 rate, uint256 term, uint256 dueBlock, bytes32 attestationProofHash)',
@@ -183,6 +183,7 @@ export async function POST(request: Request) {
           wallet.address, attackAmount, 500n, 7n,
           ethers.id('fabricated-proof-attack'),
           ethers.id('attestcoin-verified'),
+          [ethers.id('f1'), ethers.id('f2')],
         ]);
         const origTx = await wallet.sendTransaction({ to: LOAN_ADDRESS, data: origData, nonce, type: 0, gasLimit: 2_000_000 });
         const origReceipt = await origTx.wait();

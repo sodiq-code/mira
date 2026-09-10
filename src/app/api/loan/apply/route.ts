@@ -133,6 +133,9 @@ export async function POST(request: Request) {
         requestedTermDays,
         decision.reasoning,
         demoBorrower.evidenceTxHashes[0] ?? ethers.id('proof'),
+        // Pass the per-factor proof hashes so each underwriting factor
+        // gets its own on-chain evidence entry.
+        credit?.proofTxHashes,
       );
       loanId = result.loanId.toString();
       originTxHash = result.originTxHash;

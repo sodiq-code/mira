@@ -132,7 +132,7 @@ describe('Loan lifecycle (real capital)', () => {
     const borrowerBalBefore = await token.balanceOf(borrower);
     const poolBalBefore = await pool.poolTokenBalance();
 
-    const receipt = await sendTx(loan, 'originate', borrower, loanAmount, 1200n, 30n, ethers.id('r1'), ethers.id('p1'));
+    const receipt = await sendTx(loan, 'originate', borrower, loanAmount, 1200n, 30n, ethers.id('r1'), ethers.id('p1'), [ethers.id('f1'), ethers.id('f2'), ethers.id('f3')]);
 
     const event = receipt!.logs.find((l: any) => {
       try { return loan.interface.parseLog(l)?.name === 'LoanOriginated'; } catch { return false; }
@@ -151,14 +151,14 @@ describe('Loan lifecycle (real capital)', () => {
 
   it('reverts on a decision above the agent tier cap', async () => {
     await expectRevert(
-      loan.originate.staticCall(other.address, 50_000n, 1200n, 30n, ethers.id('r'), ethers.id('p')),
+      loan.originate.staticCall(other.address, 50_000n, 1200n, 30n, ethers.id('r'), ethers.id('p'), [ethers.id('f1')]),
       'Loan: decision violates policy',
     );
   });
 
   it('reverts when a non-worker calls originate', async () => {
     await expectRevert(
-      loan.connect(other).originate.staticCall(other.address, 2_500n, 1200n, 30n, ethers.id('r'), ethers.id('p')),
+      loan.connect(other).originate.staticCall(other.address, 2_500n, 1200n, 30n, ethers.id('r'), ethers.id('p'), [ethers.id('f1')]),
       'Loan: caller is not worker',
     );
   });
@@ -194,12 +194,12 @@ describe('Loan lifecycle (real capital)', () => {
     // Originate a third loan that stays Originated for the
     // markRepaidWithProof test below. The score is now 510 (500 + 10),
     // so the $25 tier cap still permits a $25 origination.
-    await sendTx(loan, 'originate', other.address, 2_500n, 1200n, 30n, ethers.id('r3'), ethers.id('p3'));
+    await sendTx(loan, 'originate', other.address, 2_500n, 1200n, 30n, ethers.id('r3'), ethers.id('p3'), [ethers.id('f1'), ethers.id('f2'), ethers.id('f3')]);
   });
 
   it('marks a loan defaulted after the due block', async () => {
     // loanId 3 (loan 2 was originated above and kept Originated).
-    await sendTx(loan, 'originate', other.address, 2_500n, 1500n, 7n, ethers.id('r2'), ethers.id('p2'));
+    await sendTx(loan, 'originate', other.address, 2_500n, 1500n, 7n, ethers.id('r2'), ethers.id('p2'), [ethers.id('f1'), ethers.id('f2')]);
     await advancePastDueBlock(loan, 3n);
     const receipt = await sendTx(loan, 'markDefaulted', 3n, ethers.id('w2'));
     const event = receipt!.logs.find((l: any) => {
@@ -341,6 +341,15 @@ describe('Loan.markRepaidWithProof (on-chain verification)', () => {
       ),
       'Loan: loan does not exist',
     );
+  });
+
+  it('stores per-factor proof hashes at origination', async () => {
+    // Loan #1 was originated with 3 factor proof hashes: f1, f2, f3.
+    const proofs = await loan.getFactorProofs(1n);
+    expect(proofs.length).to.equal(3);
+    expect(proofs[0]).to.equal(ethers.id('f1'));
+    expect(proofs[1]).to.equal(ethers.id('f2'));
+    expect(proofs[2]).to.equal(ethers.id('f3'));
   });
 });
 

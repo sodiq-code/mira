@@ -21,12 +21,14 @@ const LIQUIDITY_POOL_ADDRESS = process.env.LIQUIDITY_POOL_ADDRESS;
 const AGENT_REPUTATION_ADDRESS = process.env.AGENT_REPUTATION_ADDRESS;
 
 const LOAN_ABI = [
-  'function originate(address borrower, uint256 amount, uint256 rate, uint256 term, bytes32 decisionReasoningHash, bytes32 attestationProofHash) returns (uint256)',
+  'function originate(address borrower, uint256 amount, uint256 rate, uint256 term, bytes32 decisionReasoningHash, bytes32 attestationProofHash, bytes32[] factorProofHashes) returns (uint256)',
   'function markRepaid(uint256 loanId, bytes32 repaymentProofHash)',
   'function markDefaulted(uint256 loanId, bytes32 writabilityActionTxHash)',
   'function status(uint256 loanId) view returns (uint8)',
   'function getLoan(uint256 loanId) view returns (address borrower, uint256 amount, uint256 rate, uint256 term, uint256 dueBlock, uint256 originatedBlock, uint8 loanStatus, bytes32 attestationProofHash)',
+  'function getFactorProofs(uint256 loanId) view returns (bytes32[])',
   'function nextLoanId() view returns (uint256)',
+  'function borrowerNonces(address) view returns (uint256)',
   'event LoanOriginated(address indexed borrower, uint256 indexed loanId, uint256 amount, uint256 rate, uint256 term, uint256 dueBlock, bytes32 attestationProofHash)',
   'event LoanRepaid(uint256 indexed loanId, uint256 repaidBlock, bytes32 repaymentProofHash)',
 ];
@@ -111,6 +113,7 @@ export async function originateLoan(
   termDays: number,
   reasoningText: string,
   attestationProofHash: string,
+  factorProofHashes?: string[],
 ): Promise<OriginateResult> {
   if (!LOAN_ADDRESS) throw new Error('LOAN_ADDRESS not set');
 
@@ -122,8 +125,14 @@ export async function originateLoan(
     ? attestationProofHash
     : '0x' + attestationProofHash.padStart(64, '0');
 
+  // If per-factor proof hashes are provided, normalize them; otherwise
+  // pass a single-entry array with the aggregate hash (backward compat).
+  const factorHashes = (factorProofHashes && factorProofHashes.length > 0)
+    ? factorProofHashes.map(h => h.startsWith('0x') ? h : '0x' + h.padStart(64, '0'))
+    : [proofHash];
+
   const nonce = await syncNonce(wallet);
-  console.log(`[loan-client] Originating loan: borrower=${borrower} amount=${amountCents} rate=${rateBps} term=${termDays} nonce=${nonce}`);
+  console.log(`[loan-client] Originating loan: borrower=${borrower} amount=${amountCents} rate=${rateBps} term=${termDays} nonce=${nonce} factorProofs=${factorHashes.length}`);
 
   const tx = await loan.originate(
     borrower,
@@ -132,6 +141,7 @@ export async function originateLoan(
     BigInt(termDays),
     reasoningHash,
     proofHash,
+    factorHashes,
     { nonce, type: 0, gasLimit: 2_000_000 },
   );
 

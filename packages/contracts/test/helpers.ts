@@ -150,7 +150,7 @@ export async function sendTx(
   const data = contract.interface.encodeFunctionData(method, args);
   const to = await contract.getAddress();
 
-  const tx = await wallet.sendTransaction({ to, data, nonce, type: 0, gasLimit: 500_000 });
+  const tx = await wallet.sendTransaction({ to, data, nonce, type: 0, gasLimit: 3_000_000 });
   return tx.wait();
 }
 
