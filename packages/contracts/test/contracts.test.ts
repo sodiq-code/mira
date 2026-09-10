@@ -83,7 +83,7 @@ describe('Policy.validateDecision + agent-authority', () => {
     expect(await policy.agentTierCap(500n)).to.equal(2_500n);
 
     const ok = await policy.validateDecision.staticCall({
-      borrower: deployer.address, amount: 2_500n, rate: 1200n, term: 30n,
+      borrower: deployer.address, amount: 2_500n, rate: 1200n, term: 30n, nonce: 0, expiresAtBlock: 0, evidenceHash: ethers.id('ev'),
     });
     expect(ok).to.be.true;
   });
@@ -91,32 +91,32 @@ describe('Policy.validateDecision + agent-authority', () => {
   it('rejects a decision above the agent tier cap ($500 > $25 cap)', async () => {
     // $500 = 50,000 cents, but the agent tier cap at score 500 is $25 = 2,500 cents
     expect(await policy.validateDecision.staticCall({
-      borrower: deployer.address, amount: 50_000n, rate: 1200n, term: 30n,
+      borrower: deployer.address, amount: 50_000n, rate: 1200n, term: 30n, nonce: 0, expiresAtBlock: 0, evidenceHash: ethers.id('ev'),
     })).to.be.false;
   });
 
   it('rejects amount above the global cap', async () => {
     expect(await policy.validateDecision.staticCall({
-      borrower: deployer.address, amount: MAX_LOAN + 1n, rate: 1200n, term: 30n,
+      borrower: deployer.address, amount: MAX_LOAN + 1n, rate: 1200n, term: 30n, nonce: 0, expiresAtBlock: 0, evidenceHash: ethers.id('ev'),
     })).to.be.false;
   });
 
   it('rejects rate below the floor', async () => {
     expect(await policy.validateDecision.staticCall({
-      borrower: deployer.address, amount: 2_500n, rate: MIN_RATE - 1n, term: 30n,
+      borrower: deployer.address, amount: 2_500n, rate: MIN_RATE - 1n, term: 30n, nonce: 0, expiresAtBlock: 0, evidenceHash: ethers.id('ev'),
     })).to.be.false;
   });
 
   it('rejects a disallowed term', async () => {
     expect(await policy.validateDecision.staticCall({
-      borrower: deployer.address, amount: 2_500n, rate: 1200n, term: 14n,
+      borrower: deployer.address, amount: 2_500n, rate: 1200n, term: 14n, nonce: 0, expiresAtBlock: 0, evidenceHash: ethers.id('ev'),
     })).to.be.false;
   });
 
   it('rejects all decisions when paused', async () => {
     await sendTx(policy, 'setPaused', true);
     expect(await policy.validateDecision.staticCall({
-      borrower: deployer.address, amount: 2_500n, rate: 1200n, term: 30n,
+      borrower: deployer.address, amount: 2_500n, rate: 1200n, term: 30n, nonce: 0, expiresAtBlock: 0, evidenceHash: ethers.id('ev'),
     })).to.be.false;
     await sendTx(policy, 'setPaused', false);
   });
@@ -259,6 +259,22 @@ describe('AgentReputation score + tier ladder', () => {
     // Agent cap is $0 (score 485) → effective $0.
     expect(await policy.effectiveBorrowerCap(other.address)).to.equal(0n);
   });
+
+  it('rejects a decision with a zero evidence hash', async () => {
+    // evidenceHash == bytes32(0) → rejected (no evidence)
+    expect(await policy.validateDecision.staticCall({
+      borrower: deployer.address, amount: 2_500n, rate: 1200n, term: 30n,
+      nonce: 0, expiresAtBlock: 0, evidenceHash: ethers.ZeroHash,
+    })).to.be.false;
+  });
+
+  it('rejects a decision past its expiry block', async () => {
+    // expiresAtBlock = 1 (long past) → rejected (stale)
+    expect(await policy.validateDecision.staticCall({
+      borrower: deployer.address, amount: 2_500n, rate: 1200n, term: 30n,
+      nonce: 0, expiresAtBlock: 1, evidenceHash: ethers.id('ev'),
+    })).to.be.false;
+  });
 });
 
 // ─── On-chain proof verification (markRepaidWithProof) ────────────────
@@ -350,7 +366,7 @@ describe('AgentReputation auto-pause', () => {
 
   it('rejects all decisions while auto-paused', async () => {
     expect(await policy.validateDecision.staticCall({
-      borrower: deployer.address, amount: 2_500n, rate: 1200n, term: 30n,
+      borrower: deployer.address, amount: 2_500n, rate: 1200n, term: 30n, nonce: 0, expiresAtBlock: 0, evidenceHash: ethers.id('ev'),
     })).to.be.false;
   });
 });

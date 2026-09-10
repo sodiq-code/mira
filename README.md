@@ -90,11 +90,11 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 | Contract | Address |
 |---|---|
 | MockUSDC (ERC-20) | [`0x4447e0C1845b03212a8e9A1d02AE9E0092056d1f`](https://creditcoin-testnet.blockscout.com/address/0x4447e0C1845b03212a8e9A1d02AE9E0092056d1f) |
-| Policy | [`0x04DeB04276d3CF6c4EBd8073a48900efCf71ED3F`](https://creditcoin-testnet.blockscout.com/address/0x04DeB04276d3CF6c4EBd8073a48900efCf71ED3F) |
+| Policy | [`0xE4fAE890E6d151D3f88c9A651020fa5B4F6d3CaD`](https://creditcoin-testnet.blockscout.com/address/0xE4fAE890E6d151D3f88c9A651020fa5B4F6d3CaD) |
 | AgentReputation | [`0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46`](https://creditcoin-testnet.blockscout.com/address/0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46) |
 | BorrowerReputation | [`0x18919cc60fC52d9077599A306C72b7B48423ed0C`](https://creditcoin-testnet.blockscout.com/address/0x18919cc60fC52d9077599A306C72b7B48423ed0C) |
 | LiquidityPool | [`0xF089D710474AA74199d98586EbFD2be3a7c6502C`](https://creditcoin-testnet.blockscout.com/address/0xF089D710474AA74199d98586EbFD2be3a7c6502C) |
-| Loan | [`0x6348E460113CFc06eF5eafF290a1Fcc5DcC99f21`](https://creditcoin-testnet.blockscout.com/address/0x6348E460113CFc06eF5eafF290a1Fcc5DcC99f21) |
+| Loan | [`0xe946aD73E55371816818bBd245ad25dcd9192df0`](https://creditcoin-testnet.blockscout.com/address/0xe946aD73E55371816818bBd245ad25dcd9192df0) |
 
 ## Verified on-chain state
 

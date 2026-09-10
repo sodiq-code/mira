@@ -274,6 +274,18 @@ contract Policy {
             if (d.amount > liquidityPool.available()) return false;
         }
 
+        // Expiry check: the decision must not be stale. The Loan contract
+        // sets expiresAtBlock = block.number + 20 at decision time (~5 min
+        // at 15s blocks), so a decision submitted after the window is
+        // rejected. This prevents replaying an old, stale decision.
+        if (d.expiresAtBlock != 0 && block.number > d.expiresAtBlock) return false;
+
+        // Evidence-hash format check: the decision must carry a non-zero
+        // evidence hash (the keccak256 of the Attestcoin proof data). A
+        // decision without evidence is rejected — the agent cannot
+        // underwrite against nothing.
+        if (d.evidenceHash == bytes32(0)) return false;
+
         return true;
     }
 

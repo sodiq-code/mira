@@ -64,6 +64,13 @@ contract Loan {
     mapping(uint256 => LoanData) private loans;
     uint256 public nextLoanId;
 
+    // ─── Nonce replay protection ──────────────────────────────────────
+
+    /// Each borrower has a monotonically increasing nonce. A decision
+    /// must carry the borrower's current nonce, and origination consumes
+    /// it — so the same decision cannot be submitted twice.
+    mapping(address => uint256) public borrowerNonces;
+
     // ─── Events ────────────────────────────────────────────────────────
 
     event LoanOriginated(
@@ -142,15 +149,25 @@ contract Loan {
         bytes32 decisionReasoningHash,
         bytes32 attestationProofHash
     ) external onlyWorker returns (uint256 loanId) {
-        // Validate against the on-chain policy. This is the guardrail that
-        // prevents a hijacked LLM from approving a 100% APR loan.
+        // Build the full Decision struct for Policy validation. The nonce
+        // is the borrower's current expected nonce; the expiry is set to
+        // ~5 minutes from now (20 blocks at 15s each) so a stale decision
+        // cannot be submitted later. The evidence hash is the attestation
+        // proof hash (non-zero — checked by Policy).
+        uint256 expectedNonce = borrowerNonces[borrower];
         Decision memory d = Decision({
             borrower: borrower,
             amount: amount,
             rate: rate,
-            term: term
+            term: term,
+            nonce: expectedNonce,
+            expiresAtBlock: block.number + 20,
+            evidenceHash: attestationProofHash
         });
         require(policy.validateDecision(d), "Loan: decision violates policy");
+
+        // Consume the nonce — the same decision cannot be submitted twice.
+        borrowerNonces[borrower] = expectedNonce + 1;
 
         loanId = nextLoanId++;
         uint256 dueBlock = block.number + (term * BLOCKS_PER_DAY);

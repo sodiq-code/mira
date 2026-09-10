@@ -31,4 +31,7 @@ struct Decision {
     uint256 amount;      // USD cents
     uint256 rate;        // basis points (bps)
     uint256 term;        // days (7 | 30 | 90)
+    uint256 nonce;       // borrower's expected nonce (replay protection)
+    uint256 expiresAtBlock;  // block after which this decision is stale
+    bytes32 evidenceHash;     // keccak256 of the verified evidence (non-zero)
 }
