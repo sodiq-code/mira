@@ -265,7 +265,7 @@ Every component that handles capital, evidence, or reputation is live on CC3 Tes
 
 ### Why the demo wallets exist
 
-The verified Sepolia wallet (`0xB47Ba…`) uses **real** Attestcoin-verified data (`demoMode: false`) — 5 proven transactions, $10,750 verified volume. Four additional preset wallets let a reviewer exercise the approve / reduced-approve / decline / prior-default paths in under 2 minutes without needing multiple real Sepolia wallets with specific activity patterns. They are labelled `demoMode: true`, never feed the real reputation ledger, and exist purely as a convenience for exploring the full decision space.
+The verified Sepolia wallet (`0xB47Ba…`) uses real Attestcoin-verified data (`demoMode: false`). Four preset wallets (`demoMode: true`) let you exercise every underwriting outcome — approve, reduced-approve, decline, prior-default — without setting up multiple real Sepolia wallets. They never feed the reputation ledger.
 
 ### What isn't simulated?
 
