@@ -248,6 +248,8 @@ Each attack calls the real on-chain contracts (gasless `staticCall`) and returns
 
 ## What is real today?
 
+Every component that handles capital, evidence, or reputation is live on CC3 Testnet. The only non-real data is a set of convenience presets that let a reviewer exercise every underwriting outcome without setting up multiple real Sepolia wallets.
+
 | Component | Status |
 |---|---|
 | Creditcoin contracts | 🟢 Deployed |
@@ -259,7 +261,11 @@ Each attack calls the real on-chain contracts (gasless `staticCall`) and returns
 | Borrower reputation | 🟢 Live |
 | Proof-verified repayment | 🟢 Live |
 | Production-mode lock | 🟢 Locked |
-| Demo-only data | 🟡 Explicitly labelled |
+| Convenience demo wallets | 🟡 Explicitly labelled `demoMode: true` |
+
+### Why the demo wallets exist
+
+The verified Sepolia wallet (`0xB47Ba…`) uses **real** Attestcoin-verified data (`demoMode: false`) — 5 proven transactions, $10,750 verified volume. Four additional preset wallets let a reviewer exercise the approve / reduced-approve / decline / prior-default paths in under 2 minutes without needing multiple real Sepolia wallets with specific activity patterns. They are labelled `demoMode: true`, never feed the real reputation ledger, and exist purely as a convenience for exploring the full decision space.
 
 ### What isn't simulated?
 
@@ -451,7 +457,7 @@ No proof → no credit. Invalid AI decision → deterministic fallback/rejection
 
 ## Real vs demo
 
-The credit-check, repayment, and default paths for synthetic demo wallets run against clearly-labelled synthetic data (`demoMode: true`). The verified Sepolia wallet ([`0xB47Ba…DAEa`](https://sepolia.etherscan.io/address/0xB47Ba223B73980E69AEF53B0d202F9785698DAEa)) uses real Attestcoin-verified data (`demoMode: false`).
+MIRA's production path is fully live. The verified Sepolia wallet ([`0xB47Ba…DAEa`](https://sepolia.etherscan.io/address/0xB47Ba223B73980E69AEF53B0d202F9785698DAEa)) uses real Attestcoin-verified data (`demoMode: false`) — 5 proven transactions, $10,750 verified volume. Four additional preset wallets are labelled `demoMode: true` so a reviewer can exercise every underwriting outcome (approve / reduced-approve / decline / prior-default) in under 2 minutes without setting up multiple real Sepolia wallets. Demo data never feeds the real reputation ledger.
 
 **Real mode vs demo mode (repayment path):**
 
@@ -464,10 +470,10 @@ PRODUCTION MODE (demoMode == false)
 DEMO MODE (demoMode == true)
 └── markRepaid()
     └── worker-trusted (no on-chain proof)
-    └── local tests + synthetic demo loans only
+    └── local tests + convenience demo loans only
 ```
 
-The deployed contract is locked to production mode — `demoMode()` returns `false`.
+The deployed contract is locked to production mode — `demoMode()` returns `false`. The worker-trusted `markRepaid` path permanently reverts, even when called by the authorized worker.
 
 ## Technical tradeoffs
 
