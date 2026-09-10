@@ -44,35 +44,35 @@ const steps = [
   {
     n: '02',
     title: 'Verify',
-    body: 'MIRA reads the wallet\'s Sepolia activity through Attestcoin and verifies every transaction against the Creditcoin BlockProver precompile.',
+    body: 'MIRA reads the wallet\'s Sepolia activity through Attestcoin and verifies every transaction against the Creditcoin BlockProver precompile. A borrower cannot claim activity they did not produce.',
   },
   {
     n: '03',
     title: 'Decide',
-    body: 'A bounded AI decision is validated against on-chain Policy, the loan is originated on Creditcoin, and the agent\'s reputation updates.',
+    body: 'A bounded AI proposes terms. The on-chain Policy independently validates them. Real ERC-20 tokens move from the liquidity pool to the borrower. The agent\'s reputation updates — and so does its lending authority.',
   },
 ];
 
 const features = [
   {
     icon: ShieldCheck,
-    title: 'Cryptographically verified',
-    body: 'Every underwriting factor is backed by an Attestcoin inclusion proof. A borrower cannot claim activity they did not produce.',
-  },
-  {
-    icon: LineChart,
-    title: 'Unfakeable reputation',
-    body: 'The agent\'s track record lives in an on-chain ledger. Every loan, repayment, and default updates a score the agent cannot tamper with.',
-  },
-  {
-    icon: Zap,
-    title: 'One-block decisions',
-    body: 'Verification settles in a single synchronous Creditcoin block (~15s). The borrower sees a decision before the page reloads.',
+    title: 'Decisions are cryptographically accountable',
+    body: 'Every underwriting factor is backed by an Attestcoin inclusion proof. The AI sees evidence, not assertions. The Policy contract independently validates every decision — the LLM cannot approve a loan above the agent\'s authority or below the rate floor.',
   },
   {
     icon: Wallet,
-    title: 'Both directions',
-    body: 'MIRA reads Sepolia state via Attestcoin and triggers Creditcoin-initiated actions on default — the deeper half of the protocol.',
+    title: 'Capital is cryptographically accountable',
+    body: 'The LiquidityPool holds real ERC-20 tokens. Origination moves them to the borrower; repayment moves them back. Every transaction is a real on-chain transfer — not a counter increment. The pool\'s available balance is a live read from the contract.',
+  },
+  {
+    icon: LineChart,
+    title: 'Reputation is cryptographically accountable',
+    body: 'The agent\'s track record lives in an on-chain ledger it cannot tamper with. Every verified repayment raises its score — and its lending authority. A fresh agent can only lend $25; a proven agent (score 650+) earns $100. Five defaults auto-pause the agent.',
+  },
+  {
+    icon: Zap,
+    title: 'We don\'t trust the AI',
+    body: 'Five adversarial attacks prove the system rejects malicious LLM output, fake proofs, wrong borrowers, expired evidence, and insufficient liquidity. The headline is literal: MIRA cannot approve a loan its own Policy contract does not independently validate.',
   },
 ];
 
@@ -118,7 +118,7 @@ export function Landing({
                 className="mb-6 border-emerald-500/40 bg-emerald-500/[0.04] text-emerald-600"
               >
                 <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Autonomous Verifiable Credit Agent
+                Self-Accountable Credit Agent
               </Badge>
             </Reveal>
             <Reveal delay={0.05}>
@@ -126,31 +126,19 @@ export function Landing({
                 id="hero-title"
                 className="text-balance text-4xl font-bold tracking-tight sm:text-6xl"
               >
-                Credit decisions a borrower{' '}
-                <span className="relative whitespace-nowrap text-emerald-500">
-                  <span className="relative z-10">cannot fake</span>
-                  <span
-                    className="absolute inset-x-0 bottom-1 -z-0 h-3 -rotate-1 bg-emerald-500/15 sm:h-4"
-                    aria-hidden
-                  />
-                </span>
-                , and an agent{' '}
-                <span className="relative whitespace-nowrap text-emerald-500">
-                  <span className="relative z-10">cannot forget</span>
-                  <span
-                    className="absolute inset-x-0 bottom-1 -z-0 h-3 -rotate-1 bg-emerald-500/15 sm:h-4"
-                    aria-hidden
-                  />
-                </span>
-                .
+                What happens when an AI agent is given money to lend?
               </h1>
             </Reveal>
+            <Reveal delay={0.08}>
+              <p className="mx-auto mt-5 max-w-2xl text-pretty text-xl font-medium text-emerald-600">
+                You shouldn&apos;t trust the AI.
+              </p>
+            </Reveal>
             <Reveal delay={0.1}>
-              <p className="mx-auto mt-7 max-w-2xl text-pretty text-lg text-muted-foreground">
-                MIRA reads a borrower&apos;s verified Ethereum history through the Attestcoin
-                Protocol, decides a loan in one Creditcoin block, disburses it on-chain, and proves
-                the decision was right by tracking repayments that update the agent&apos;s own
-                reputation ledger.
+              <p className="mx-auto mt-3 max-w-2xl text-pretty text-lg text-muted-foreground">
+                You should trust the evidence, the policy, and the agent&apos;s track record.
+                MIRA is an autonomous lender whose decisions, capital, and reputation are
+                cryptographically accountable — on Creditcoin, verified by Attestcoin.
               </p>
             </Reveal>
             <Reveal delay={0.15}>
@@ -188,10 +176,10 @@ export function Landing({
                 The flow
               </p>
               <h2 id="how-title" className="text-3xl font-bold tracking-tight sm:text-4xl">
-                Three steps, one screen
+                Evidence, policy, and reputation
               </h2>
               <p className="mt-3 text-muted-foreground">
-                From wallet connection to an on-chain loan in roughly fifteen seconds.
+                Three steps, one trust root — every decision is independently verifiable on-chain.
               </p>
             </div>
           </Reveal>
@@ -228,10 +216,10 @@ export function Landing({
                 The properties
               </p>
               <h2 id="features-title" className="text-3xl font-bold tracking-tight sm:text-4xl">
-                Built on verification, not assertion
+                Decisions, capital, and reputation — all on-chain
               </h2>
               <p className="mt-3 text-muted-foreground">
-                The properties that make MIRA&apos;s credit decisions trustworthy.
+                MIRA doesn&apos;t claim to be trustworthy. It earns the right to manage capital.
               </p>
             </div>
           </Reveal>
@@ -273,7 +261,7 @@ export function Landing({
                   A Next.js frontend, a TypeScript worker, and Creditcoin smart contracts. The
                   worker is the only component that holds keys; the frontend never signs Creditcoin
                   transactions, and every factor it shows was verified by the BlockProver
-                  precompile.
+                  precompile. The AI proposes — the Policy disposes.
                 </p>
                 <ul className="mt-6 space-y-3 text-sm">
                   <li className="flex items-start gap-3">
