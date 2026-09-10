@@ -99,11 +99,11 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 ## Verified on-chain state
 
 **Agent reputation (live from CC3 Testnet):**
-- Current score: 650 (base 500 + 15 verified repayments × 10)
-- Cumulative loans: 20
+- Current score: 625 (base 500 + 15 repaid × 10 − 1 default × 25)
+- Cumulative loans: 21
 - Cumulative repaid: 15
-- Cumulative defaulted: 0
-- Capital authority: $100.00 (tier upgrade from $25 → $100 at score 650)
+- Cumulative defaulted: 1
+- Capital authority: $25.00 (dropped from $100 after a verified default lowered the score below 650)
 - Auto-paused: false
 
 **Liquidity pool (real ERC-20 custody):**
@@ -127,11 +127,12 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 - Repay tx: `0xc79b734fd639e0f676d2c45aa04bb1085e9aabbb786e4488a89a62f8123b1f04`
 
 **Reputation → capital authority progression (live on CC3 Testnet):**
-- 20 loans originated, 15 repaid, 0 defaulted
-- Score progression: 500 → 510 → 640 → 650
-- Capital authority progression: $25 → $25 → $25 → **$100** (tier upgrade at score 650)
-- Tier-up tx: `0x211e899cf8cb5eea45c452f913560c9fbdd4d7eaefc2c635c1f2180684d0c183` (loan #20, the one that pushed the score to 650)
-- The agent earned the right to manage 4× more capital through verified repayments
+- 21 loans originated, 15 repaid, 1 defaulted
+- Score progression: 500 → 510 → 640 → 650 → **625**
+- Capital authority progression: $25 → $25 → $25 → **$100** → **$25**
+- Tier-up tx: `0x211e899cf8cb5eea45c452f913560c9fbdd4d7eaefc2c635c1f2180684d0c183` (loan #20, pushed score to 650, unlocked $100)
+- Default tx: `0x549cb0920b0701971c37ee49ce82dc2e06eab400342244e674d2ff4bad596c6e` (recorded a verified default, score dropped to 625, authority fell back to $25)
+- The complete feedback loop: verified repayments raise the score + authority; verified defaults lower both. The agent earns and loses the right to manage capital through its own on-chain track record.
 
 ## Agent-authority tier ladder
 
