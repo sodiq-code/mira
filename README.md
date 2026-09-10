@@ -99,11 +99,11 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 ## Verified on-chain state
 
 **Agent reputation (live from CC3 Testnet):**
-- Current score: 625 (base 500 + 15 repaid × 10 − 1 default × 25)
-- Cumulative loans: 21
-- Cumulative repaid: 15
+- Current score: 655 (base 500 + 18 repaid × 10 − 1 default × 25)
+- Cumulative loans: 24
+- Cumulative repaid: 18
 - Cumulative defaulted: 1
-- Capital authority: $25.00 (dropped from $100 after a verified default lowered the score below 650)
+- Capital authority: $100.00 (restored after recovery from default)
 - Auto-paused: false
 
 **Liquidity pool (real ERC-20 custody):**
@@ -127,12 +127,14 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 - Repay tx: `0xc79b734fd639e0f676d2c45aa04bb1085e9aabbb786e4488a89a62f8123b1f04`
 
 **Reputation → capital authority progression (live on CC3 Testnet):**
-- 21 loans originated, 15 repaid, 1 defaulted
-- Score progression: 500 → 510 → 640 → 650 → **625**
-- Capital authority progression: $25 → $25 → $25 → **$100** → **$25**
-- Tier-up tx: `0x211e899cf8cb5eea45c452f913560c9fbdd4d7eaefc2c635c1f2180684d0c183` (loan #20, pushed score to 650, unlocked $100)
-- Default tx: `0x549cb0920b0701971c37ee49ce82dc2e06eab400342244e674d2ff4bad596c6e` (recorded a verified default, score dropped to 625, authority fell back to $25)
-- The complete feedback loop: verified repayments raise the score + authority; verified defaults lower both. The agent earns and loses the right to manage capital through its own on-chain track record.
+- 24 loans originated, 18 repaid, 1 defaulted
+- Score progression: 500 → 510 → 640 → 650 → 625 → **655**
+- Capital authority progression: $25 → $25 → $25 → **$100** → **$25** → **$100**
+- The complete feedback loop, proven on-chain:
+  - $25 → $100: earned via 15 verified repayments (score crossed 650)
+  - $100 → $25: lost via 1 verified default (score dropped to 625)
+  - $25 → $100: earned back via 3 more verified repayments (score crossed 650 again)
+- The agent earned, lost, and re-earned the right to manage capital — all through its own on-chain track record, no human intervention.
 
 ## Agent-authority tier ladder
 
