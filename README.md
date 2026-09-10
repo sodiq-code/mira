@@ -232,6 +232,35 @@ The deployed Loan contract is **locked to production mode** — `demoMode()` ret
 - **Proof-verified repayment tx:** [`0xff58b151…`](https://creditcoin-testnet.blockscout.com/tx/0xff58b151530809facae16e70daf6029b8701f918a10d0df8bd936fd6f0eee45a) — the contract verified the proof on-chain, moved real tokens, and updated the score 665 → 675 (+10).
 - **Sepolia transaction proven:** [`0xedd21116…`](https://sepolia.etherscan.io/tx/0xedd21116c18c96bff741f6545442b92ccb4f9fff42cb37df3e1aa22c1b10733c)
 
+### Origination vs repayment: two trust models, one reason
+
+Repayment verification calls the BlockProver precompile **inside** the loan contract — the contract is the trust anchor. Origination uses a different pattern: the worker verifies Attestcoin proofs off-chain (gasless `verifyReadonly`) and submits the decision with the evidence hashes; the contract enforces 10 on-chain Policy checks and stores the per-factor proof hashes as an audit trail.
+
+```
+ORIGINATION (worker-verified evidence, contract-enforced bounds)
+  Worker verifies 5 Attestcoin proofs off-chain (gasless verifyReadonly)
+      ↓
+  Loan.originate() → Policy.validateDecision() [10 on-chain checks]
+      ↓
+  stores attestationProofHash + factorProofHashes[] as audit trail
+      ↓
+  moves real ERC-20 tokens atomically
+
+REPAYMENT (contract-verified proof)
+  Worker submits the full Attestcoin proof struct
+      ↓
+  Loan.markRepaidWithProof() → BlockProver.verify() [on-chain]
+      ↓
+  valid proof → repay accepted
+  invalid proof → REVERT
+```
+
+**Why the difference?** Each Attestcoin proof is a large Merkle + continuity struct. Verifying 5 proofs on-chain during origination would cost ~5× the gas of a single repayment proof — impractical for a ~15-second block. Instead, the worker pre-validates off-chain (the same gasless `verifyReadonly` call the BlockProver precompile runs), and the contract enforces every bound that matters for capital safety: tier caps, rate bounds, term, liquidity, expiry, nonce, and evidence-hash format. The evidence hashes are stored on-chain so any party can audit them post-hoc.
+
+**What is worker-verified:** the Attestcoin inclusion proofs (that the borrower's Sepolia transactions are real and attested).
+
+**What is contract-enforced:** the 10 Policy checks + nonce replay protection + production-mode lock. A compromised worker key cannot exceed the agent's tier cap, set an invalid rate, bypass liquidity, replay a decision, or fabricate a repayment.
+
 ---
 
 ## We tried to break it
