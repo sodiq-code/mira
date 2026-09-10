@@ -31,6 +31,7 @@ import {
   Sparkles,
   ShieldX,
   FlaskConical,
+  Map,
 } from 'lucide-react';
 import { Reveal } from '@/components/landing/reveal';
 import { ArchitectureDiagram } from '@/components/landing/architecture-diagram';
@@ -85,11 +86,13 @@ export function Landing({
   onOpenReputation,
   onOpenAttack,
   onOpenExperiment,
+  onOpenGuided,
 }: {
   onLaunch: () => void;
   onOpenReputation: () => void;
   onOpenAttack: () => void;
   onOpenExperiment: () => void;
+  onOpenGuided: () => void;
 }) {
   return (
     <>
@@ -164,6 +167,10 @@ export function Landing({
                 <Button size="lg" variant="outline" onClick={onOpenExperiment}>
                   <FlaskConical className="mr-2 h-4 w-4" />
                   AI experiment
+                </Button>
+                <Button size="lg" variant="outline" onClick={onOpenGuided}>
+                  <Map className="mr-2 h-4 w-4" />
+                  11-step walkthrough
                 </Button>
                 <Button size="lg" variant="ghost" asChild>
                   <Link

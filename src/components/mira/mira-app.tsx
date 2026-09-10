@@ -122,6 +122,7 @@ export function MiraApp() {
                 onOpenReputation={() => setView('reputation')}
                 onOpenAttack={() => setView('attack')}
                 onOpenExperiment={() => setView('experiment')}
+                onOpenGuided={() => setView('guided')}
               />
             )}
             {view === 'connect' && <ConnectWallet />}

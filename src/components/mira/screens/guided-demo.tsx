@@ -36,12 +36,18 @@ import {
   TrendingUp,
   ArrowLeft,
   CheckCircle2,
+  ExternalLink,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useMiraStore } from '@/lib/mira/store-client';
 import { cn } from '@/lib/utils';
+
+interface EvidenceLink {
+  label: string;
+  href: string;
+}
 
 interface DemoStep {
   num: number;
@@ -50,7 +56,12 @@ interface DemoStep {
   lookFor: string;
   icon: typeof Wallet;
   tone: 'amber' | 'emerald' | 'blue';
+  evidence?: EvidenceLink[];
 }
+
+const CC3_TX = (h: string) => `https://cc3-testnet.creditcoin.network/extrinsic/${h}`;
+const CC3_ADDR = (a: string) => `https://cc3-testnet.creditcoin.network/address/${a}`;
+const SEPOLIA_TX = (h: string) => `https://sepolia.etherscan.io/tx/${h}`;
 
 const STEPS: DemoStep[] = [
   {
@@ -60,6 +71,9 @@ const STEPS: DemoStep[] = [
     lookFor: 'The wallet address appears in the header. No personal data is collected.',
     icon: Wallet,
     tone: 'amber',
+    evidence: [
+      { label: 'Verified borrower wallet', href: 'https://sepolia.etherscan.io/address/0xB47Ba223B73980E69AEF53B0d202F9785698DAEa' },
+    ],
   },
   {
     num: 2,
@@ -76,6 +90,9 @@ const STEPS: DemoStep[] = [
     lookFor: 'Each factor has an "Attestcoin-verified" badge with a clickable proof tx hash.',
     icon: ShieldCheck,
     tone: 'emerald',
+    evidence: [
+      { label: 'TransactionVerified event (CC3)', href: CC3_TX('0xa685eb0eb5fdcbeaae86655acaf8339d3662ecaa31933e31918d3b5fb88bde31') },
+    ],
   },
   {
     num: 4,
@@ -100,6 +117,9 @@ const STEPS: DemoStep[] = [
     lookFor: 'The audit trail shows each Policy check marked ✓. A malicious LLM output is rejected.',
     icon: ShieldX,
     tone: 'emerald',
+    evidence: [
+      { label: 'Policy contract (CC3)', href: CC3_ADDR('0x684b9a5bB7aC7923B15E7D490078db5c21317986') },
+    ],
   },
   {
     num: 7,
@@ -108,6 +128,10 @@ const STEPS: DemoStep[] = [
     lookFor: 'The CC3 Testnet explorer shows the token transfer transaction.',
     icon: Coins,
     tone: 'emerald',
+    evidence: [
+      { label: 'Proof-verified loan origination (CC3)', href: CC3_TX('0xe987d4203951cbce64d03f9ffebdfbf9e66e0cbc21af73ae282994127cf69887') },
+      { label: 'LiquidityPool contract (CC3)', href: CC3_ADDR('0xF089D710474AA74199d98586EbFD2be3a7c6502C') },
+    ],
   },
   {
     num: 8,
@@ -120,10 +144,14 @@ const STEPS: DemoStep[] = [
   {
     num: 9,
     title: 'Attestcoin verifies the repayment',
-    description: 'The worker generates an Attestcoin proof for the repayment transaction and verifies it on-chain. The proof is stored on the Loan contract — anyone can audit it.',
-    lookFor: 'The Loan contract\'s markRepaidWithProof calls the BlockProver precompile directly.',
+    description: 'The worker generates an Attestcoin proof for the repayment transaction and the Loan contract ITSELF calls the BlockProver precompile to verify it on-chain. A compromised worker key cannot fabricate a repayment.',
+    lookFor: 'The Loan contract\'s markRepaidWithProof calls the BlockProver precompile directly — the contract verifies, not the worker.',
     icon: ShieldCheck,
     tone: 'emerald',
+    evidence: [
+      { label: 'Proof-verified repayment tx (CC3)', href: CC3_TX('0xff58b151530809facae16e70daf6029b8701f918a10d0df8bd936fd6f0eee45a') },
+      { label: 'Sepolia tx proven (Etherscan)', href: SEPOLIA_TX('0xedd21116c18c96bff741f6545442b92ccb4f9fff42cb37df3e1aa22c1b10733c') },
+    ],
   },
   {
     num: 10,
@@ -132,6 +160,9 @@ const STEPS: DemoStep[] = [
     lookFor: 'The reputation dashboard shows the new score and the +10 delta.',
     icon: TrendingUp,
     tone: 'emerald',
+    evidence: [
+      { label: 'AgentReputation contract (CC3)', href: CC3_ADDR('0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46') },
+    ],
   },
   {
     num: 11,
@@ -140,6 +171,9 @@ const STEPS: DemoStep[] = [
     lookFor: 'The capital authority card on the dashboard shows the current tier and the next threshold.',
     icon: TrendingUp,
     tone: 'emerald',
+    evidence: [
+      { label: 'Loan contract (CC3)', href: CC3_ADDR('0x239E3f87192fC63E8e58688C07f2b6406B9A83a8') },
+    ],
   },
 ];
 
@@ -230,6 +264,27 @@ export function GuidedDemo() {
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">{step.lookFor}</p>
                   </div>
+
+                  {/* Real on-chain evidence */}
+                  {step.evidence && step.evidence.length > 0 && (
+                    <div className="mt-3 space-y-1.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Verified on-chain
+                      </p>
+                      {step.evidence.map((link) => (
+                        <a
+                          key={link.href}
+                          href={link.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 px-2.5 py-1.5 text-xs text-foreground transition-colors hover:border-emerald-500/40 hover:bg-emerald-500/[0.04]"
+                        >
+                          <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{link.label}</span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
