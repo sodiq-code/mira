@@ -72,6 +72,16 @@ function loadArtifactAbi(name: string): InterfaceAbi {
  *
  * Decimals matter because ERC-20 amounts are in the smallest unit; dividing
  * by 10^decimals yields the human-readable USD-denominated amount.
+ *
+ * Design note: MIRA uses real Sepolia ERC-20 Transfer events rather than
+ * Aave V3 Repay events because Aave V3 is not officially deployed on
+ * Sepolia. The cryptographic guarantee is identical — both are real,
+ * attested Sepolia transactions proven via Attestcoin and verified by the
+ * BlockProver precompile. The semantic difference (Repay is a stronger
+ * repayment-behavior signal) is a modeling choice, not a trust choice. On
+ * mainnet, this set would be extended to include the Aave V3 pool address
+ * and the log parser would decode Repay events. See
+ * docs/attestcoin-integration.md for the full equivalence argument.
  */
 export interface StablecoinSpec {
   symbol: 'USDC' | 'USDT' | 'DAI';

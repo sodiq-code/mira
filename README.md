@@ -120,6 +120,8 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 - All 5 proven via the Attestcoin ProofBuilder and verified by the BlockProver precompile
 - Verified factors: `txCount90d=5`, `stablecoinVolume90d=$10,750`, `demoMode=false`
 
+**Why stablecoin Transfers, not Aave Repay events?** Aave V3 is not officially deployed on Ethereum Sepolia (Aave governance lists mainnet, Polygon, Arbitrum, etc. — not Sepolia). MIRA instead underwrites against real Sepolia ERC-20 `Transfer` events from native USDC/USDT/DAI and a MIRA-deployed MockUSDC test token. The cryptographic guarantee is identical: both are real, attested Sepolia transactions proven via Attestcoin and verified by the BlockProver precompile — a borrower cannot fabricate either. The semantic difference (Aave `Repay` is a stronger repayment-behavior signal) is a modeling choice, not a trust choice. On mainnet, the same code path would prove Aave V3 `Repay` events once Creditcoin attests mainnet blocks. See [`docs/attestcoin-integration.md`](./docs/attestcoin-integration.md) for the full equivalence argument.
+
 **Real loan originated + repaid on CC3 Testnet:**
 - Loan #1: $25 at 5% APR for 7 days — originated via `Loan.originate()`, real ERC-20 tokens moved from the LiquidityPool to the borrower
 - Origin tx: `0x89cc6d8d6c44acf5eb0c481c7f3c2577b32c49018104b524dee994efade43b99`

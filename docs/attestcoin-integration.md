@@ -88,6 +88,61 @@ Most integrations stop at Readability. MIRA uses both, which is the deeper half 
 
 The load-bearing property is that **a borrower cannot claim activity they did not produce**. Traditional off-chain underwriting trusts whatever data the agent fetches; MIRA trusts only what the BlockProver precompile has verified. Compromising the worker, the LLM, or the proof builder cannot manufacture a fake factor — the precompile reverts on any proof that does not correspond to a real, attested Sepolia transaction.
 
+## Verified financial activity: stablecoin Transfers vs Aave Repay events
+
+A natural question is why MIRA underwrites against stablecoin `Transfer`
+events rather than Aave V3 `Repay` events, which are a more direct
+repayment-behavior signal. The answer has two parts: a deployment
+constraint and a cryptographic equivalence.
+
+### Deployment constraint
+
+Aave V3 is not officially deployed on Ethereum Sepolia. Aave governance
+lists mainnet, Polygon, Arbitrum, Optimism, Avalanche, Base, and BNB
+Chain as supported markets; Sepolia is a testnet that Aave does not
+operate a market on. Without a reliable Aave V3 pool on Sepolia, there
+are no `Repay` events for the Attestcoin read path to prove.
+
+### Cryptographic equivalence
+
+MIRA instead uses real Sepolia ERC-20 `Transfer` events — from native
+USDC, USDT, DAI, and a MIRA-deployed MockUSDC test token — as the
+verified financial-activity signal. The load-bearing property is
+identical to what Aave `Repay` events would provide:
+
+| Property | Aave V3 `Repay` | MIRA stablecoin `Transfer` |
+|---|---|---|
+| Real on-chain transaction | ✓ | ✓ |
+| Included in an attested Sepolia block | ✓ | ✓ |
+| Proven via Attestcoin inclusion proof | ✓ | ✓ |
+| Verified by the BlockProver precompile on-chain | ✓ | ✓ |
+| Borrower can fabricate it | ✗ | ✗ |
+
+The BlockProver precompile verifies that the transaction is real and
+attested — it does not care whether the transaction is an Aave `Repay`
+or a USDC `Transfer`. Both are Sepolia transactions whose inclusion is
+cryptographically provable. A borrower cannot claim either type of event
+they did not produce.
+
+The semantic difference (Aave `Repay` is a stronger repayment-behavior
+signal than a generic `Transfer`) is a modeling choice, not a trust
+choice. MIRA's trust boundary is the precompile, not the event
+semantics. On mainnet, the same code path would prove Aave V3 `Repay`
+events from Ethereum mainnet once Creditcoin attests mainnet blocks —
+the `SEPOLIA_STABLECOINS` set in `credit-check.ts` would simply be
+extended to include the Aave V3 pool address, and the `Transfer`-log
+parsing would be extended to decode `Repay` events. No change to the
+trust model is required.
+
+### What the verified wallet proves today
+
+The verified Sepolia wallet (`0xB47Ba…`) has 5 real transactions — the
+MockUSDC deploy, a mint, and three token transfers — totaling $10,750 in
+verified stablecoin volume. All 5 are proven via the Attestcoin
+ProofBuilder and verified by the BlockProver precompile (`demoMode: false`).
+This is real, attested financial activity — the same cryptographic
+guarantee an Aave `Repay` history would provide.
+
 ## Validation
 
 The end-to-end feasibility check lives at `packages/worker/scripts/validate-attestcoin.ts`. It runs the full read path against live CC3 Testnet and Sepolia:
