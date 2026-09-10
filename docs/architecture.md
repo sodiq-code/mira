@@ -39,7 +39,7 @@ EVM contracts deployed to Creditcoin CC3 Testnet:
 | Contract | Role |
 |---|---|
 | `Policy` | Singleton bounds: max loan amount, rate range (bps), allowed terms. Governance-gated; the worker cannot change it. |
-| `Loan` | One instance per loan. Owns the `Pending → Originated → (Repaid \| Defaulted)` state machine. |
+| `Loan` | Singleton. Owns the `Pending → Originated → (Repaid \| Defaulted)` state machine for every loan, keyed by integer ID. |
 | `AgentReputation` | Singleton append-mostly ledger of the agent's cumulative loans/repaid/defaulted and a derived score. |
 | `BorrowerReputation` | Per-borrower repaid/defaulted counts. |
 | `LiquidityPool` | Singleton; the protocol is the lender in the MVP. |
