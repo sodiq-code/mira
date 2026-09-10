@@ -98,7 +98,7 @@ async function main(): Promise<void> {
   console.log('\nDeploying new Loan contract...');
   const artifact = loadArtifact('Loan');
   const factory = new ContractFactory(artifact.abi, artifact.bytecode, wallet);
-  const deployData = artifact.bytecode + factory.interface.encodeDeploy([workerAddr, policyAddr, agentRepAddr, borrowerRepAddr, poolAddr]).slice(2);
+  const deployData = artifact.bytecode + factory.interface.encodeDeploy([workerAddr, workerAddr, policyAddr, agentRepAddr, borrowerRepAddr, poolAddr]).slice(2);
   const receipt = await sendTx(wallet, null, deployData, 5_000_000);
   const newLoanAddr = receipt.contractAddress!;
   console.log(`New Loan deployed → ${newLoanAddr}`);

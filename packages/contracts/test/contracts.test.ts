@@ -39,7 +39,7 @@ before(async () => {
   agentRep = await deployContract('AgentReputation', deployer, deployer.address);
   borrowerRep = await deployContract('BorrowerReputation', deployer, deployer.address);
   pool = await deployContract('LiquidityPool', deployer, deployer.address, deployer.address, await token.getAddress());
-  loan = await deployContract('Loan', deployer, deployer.address, await policy.getAddress(), await agentRep.getAddress(), await borrowerRep.getAddress(), await pool.getAddress());
+  loan = await deployContract('Loan', deployer, deployer.address, deployer.address, await policy.getAddress(), await agentRep.getAddress(), await borrowerRep.getAddress(), await pool.getAddress());
 
   // Wire cross-contract dependencies.
   await sendTx(agentRep, 'setLoanContract', await loan.getAddress());
@@ -350,6 +350,24 @@ describe('Loan.markRepaidWithProof (on-chain verification)', () => {
     expect(proofs[0]).to.equal(ethers.id('f1'));
     expect(proofs[1]).to.equal(ethers.id('f2'));
     expect(proofs[2]).to.equal(ethers.id('f3'));
+  });
+
+  it('rejects worker-trusted markRepaid after lockToProductionMode', async () => {
+    // Use loan #2 (originated at line 197, kept Originated for this test).
+    // demoMode starts true. After governance calls lockToProductionMode,
+    // markRepaid must revert — only markRepaidWithProof is accepted.
+    expect(await loan.demoMode()).to.be.true;
+    expect(await loan.status(2n)).to.equal(1n); // Originated
+
+    // Lock to production mode (governance = deployer).
+    await sendTx(loan, 'lockToProductionMode');
+    expect(await loan.demoMode()).to.be.false;
+
+    // markRepaid must now revert — the escape hatch is closed.
+    await expectRevert(
+      loan.markRepaid.staticCall(2n, ethers.id('fake-proof')),
+      'Loan: worker-trusted repayment rejected in production mode',
+    );
   });
 });
 

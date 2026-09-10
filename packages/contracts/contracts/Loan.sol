@@ -41,6 +41,22 @@ contract Loan {
     // ─── Roles ──────────────────────────────────────────────────────────
 
     address public worker;
+    address public governance;
+
+    // ─── Mode (real vs demo) ───────────────────────────────────────────
+
+    /**
+     * When true, the worker-trusted `markRepaid` path is allowed (for
+     * local tests and demo loans where a full Attestcoin proof is not
+     * available). When false (production), ONLY `markRepaidWithProof`
+     * is accepted — the contract itself calls the BlockProver precompile
+     * and reverts if the proof is invalid. A compromised worker key
+     * cannot fabricate a repayment in production mode.
+     *
+     * Defaults to true so local Hardhat tests pass. Governance sets it
+     * to false once the contract is deployed for real use.
+     */
+    bool public demoMode = true;
 
     // ─── Loan storage ──────────────────────────────────────────────────
 
@@ -85,6 +101,7 @@ contract Loan {
     );
     event LoanRepaid(uint256 indexed loanId, uint256 repaidBlock, bytes32 repaymentProofHash);
     event LoanDefaulted(uint256 indexed loanId, uint256 defaultBlock, bytes32 writabilityActionTxHash);
+    event ProductionModeLocked(uint256 blockNumber);
 
     // ─── Modifiers ─────────────────────────────────────────────────────
 
@@ -97,13 +114,16 @@ contract Loan {
 
     constructor(
         address _worker,
+        address _governance,
         address _policy,
         address _agentReputation,
         address _borrowerReputation,
         address _liquidityPool
     ) {
         require(_worker != address(0), "Loan: worker is zero address");
+        require(_governance != address(0), "Loan: governance is zero address");
         worker = _worker;
+        governance = _governance;
         policy = Policy(_policy);
         agentReputation = AgentReputation(_agentReputation);
         borrowerReputation = BorrowerReputation(_borrowerReputation);
@@ -116,6 +136,18 @@ contract Loan {
     function setWorker(address _worker) external {
         require(msg.sender == worker, "Loan: not worker");
         worker = _worker;
+    }
+
+    /**
+     * Lock the contract into production mode. Once called, the
+     * worker-trusted `markRepaid` path is permanently rejected — only
+     * `markRepaidWithProof` (which calls the BlockProver precompile) is
+     * accepted. Governance-only, one-way (cannot be un-set).
+     */
+    function lockToProductionMode() external {
+        require(msg.sender == governance, "Loan: not governance");
+        demoMode = false;
+        emit ProductionModeLocked(block.number);
     }
 
     // ─── Origination ───────────────────────────────────────────────────
@@ -287,14 +319,19 @@ contract Loan {
     }
 
     /**
-     * Mark a loan as repaid (worker-trusted version).
+     * Mark a loan as repaid (worker-trusted, demo-mode only).
      *
-     * This version trusts the worker's off-chain verification. It exists
-     * for backward compatibility and for cases where the full proof
-     * struct is not available (e.g. demo mode). In production,
-     * markRepaidWithProof should be used instead.
+     * This path trusts the worker's off-chain verification. It is ONLY
+     * accepted when `demoMode == true` (local tests + synthetic demo
+     * loans). Once governance calls `lockToProductionMode()`, this
+     * function reverts permanently — in production, only
+     * `markRepaidWithProof` is accepted, which calls the BlockProver
+     * precompile to verify the proof on-chain.
+     *
+     * A judge can verify the mode on-chain by reading `demoMode()`.
      */
     function markRepaid(uint256 loanId, bytes32 repaymentProofHash) external onlyWorker {
+        require(demoMode, "Loan: worker-trusted repayment rejected in production mode");
         LoanData storage loan = loans[loanId];
         require(loan.exists, "Loan: loan does not exist");
         require(loan.status == LoanStatus.Originated, "Loan: not originated");

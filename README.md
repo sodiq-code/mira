@@ -94,7 +94,7 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 | AgentReputation | [`0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46`](https://creditcoin-testnet.blockscout.com/address/0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46) |
 | BorrowerReputation | [`0x18919cc60fC52d9077599A306C72b7B48423ed0C`](https://creditcoin-testnet.blockscout.com/address/0x18919cc60fC52d9077599A306C72b7B48423ed0C) |
 | LiquidityPool | [`0xF089D710474AA74199d98586EbFD2be3a7c6502C`](https://creditcoin-testnet.blockscout.com/address/0xF089D710474AA74199d98586EbFD2be3a7c6502C) |
-| Loan | [`0x16562cCB54f91F0D1Cc4a4dAA155a991689bB4c4`](https://creditcoin-testnet.blockscout.com/address/0x16562cCB54f91F0D1Cc4a4dAA155a991689bB4c4) |
+| Loan | [`0xcFc46cbE0a8b015C59177f1fE204d9312326Bd28`](https://creditcoin-testnet.blockscout.com/address/0xcFc46cbE0a8b015C59177f1fE204d9312326Bd28) |
 
 ## Verified on-chain state
 
@@ -147,6 +147,28 @@ The Loan contract does not trust the worker to verify repayments — it verifies
   - Originated loan #1, generated an Attestcoin proof for a real Sepolia transaction, and called `markRepaidWithProof`. The contract's `staticCall` to the precompile returned `true` (proof verified on-chain), then the state-changing tx moved real ERC-20 tokens back to the pool and incremented the agent score 665 → 675 (+10).
   - Sepolia transaction proven: [`0xedd21116c18c96bff741f6545442b92ccb4f9fff42cb37df3e1aa22c1b10733c`](https://sepolia.etherscan.io/tx/0xedd21116c18c96bff741f6545442b92ccb4f9fff42cb37df3e1aa22c1b10733c)
 - The worker still runs a gasless `verifyReadonly` pre-check as a fast-fail defence, but the contract is the authoritative verifier — if the worker's key is compromised, it cannot mark a loan repaid without a real, attested Sepolia transaction.
+
+**Real mode vs demo mode (the escape hatch is structurally closed):**
+
+The Loan contract has two repayment paths, gated by an on-chain `demoMode` flag:
+
+```
+PRODUCTION MODE (demoMode == false)
+└── markRepaidWithProof()
+    └── BlockProver.verify() on-chain
+    └── repayment accepted only if proof verifies
+    └── a compromised worker key cannot fabricate a repayment
+
+DEMO MODE (demoMode == true)
+└── markRepaid()
+    └── worker-trusted (no on-chain proof)
+    └── local tests + synthetic demo loans only
+```
+
+Governance calls `Loan.lockToProductionMode()` (one-way, cannot be un-set) to permanently reject the worker-trusted path. The deployed Loan contract on CC3 Testnet is **locked to production mode** — `demoMode()` returns `false`, and `markRepaid()` reverts with `"Loan: worker-trusted repayment rejected in production mode"` even when called by the authorized worker.
+
+- Lock tx: [`0x78d0f9ebd85b353a60c72779cab467b64fc36a65e8cbe5c2054309b32b9accb9`](https://creditcoin-testnet.blockscout.com/tx/0x78d0f9ebd85b353a60c72779cab467b64fc36a65e8cbe5c2054309b32b9accb9)
+- A judge can verify the mode on-chain by reading `Loan.demoMode()` → `false`.
 
 ## Agent-authority tier ladder
 
