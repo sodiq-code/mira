@@ -84,6 +84,12 @@ const receipt = await tx.wait();
 
 Most integrations stop at Readability. MIRA uses both, which is the deeper half of the protocol and the basis for the agent's reputation loop: every verified repayment increments `AgentReputation.cumulativeRepaid`, every verified default increments `cumulativeDefaulted`, and the resulting score is a public, unfakeable measure of how good the agent is at picking loans.
 
+### Contract-verified repayment (the trust anchor)
+
+The Loan contract does not trust the worker to verify repayments. `Loan.markRepaidWithProof` calls `BlockProver.verify` on-chain inside the same transaction that marks a loan repaid — a compromised worker key cannot fabricate a repayment because the contract re-runs the cryptographic verification.
+
+The contract has a one-way `demoMode` flag (defaults to `true` for local tests). Governance calls `Loan.lockToProductionMode()` to permanently reject the worker-trusted `markRepaid` path. Once locked, only `markRepaidWithProof` is accepted. The deployed contract on CC3 Testnet is locked to production mode — `demoMode()` returns `false`.
+
 ## Why this matters for credit
 
 The load-bearing property is that **a borrower cannot claim activity they did not produce**. Traditional off-chain underwriting trusts whatever data the agent fetches; MIRA trusts only what the BlockProver precompile has verified. Compromising the worker, the LLM, or the proof builder cannot manufacture a fake factor — the precompile reverts on any proof that does not correspond to a real, attested Sepolia transaction.

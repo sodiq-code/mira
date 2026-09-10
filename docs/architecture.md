@@ -38,11 +38,11 @@ EVM contracts deployed to Creditcoin CC3 Testnet:
 
 | Contract | Role |
 |---|---|
-| `Policy` | Singleton bounds: max loan amount, rate range (bps), allowed terms. Governance-gated; the worker cannot change it. |
-| `Loan` | Singleton. Owns the `Pending → Originated → (Repaid \| Defaulted)` state machine for every loan, keyed by integer ID. |
-| `AgentReputation` | Singleton append-mostly ledger of the agent's cumulative loans/repaid/defaulted and a derived score. |
-| `BorrowerReputation` | Per-borrower repaid/defaulted counts. |
-| `LiquidityPool` | Singleton; the protocol is the lender in the MVP. |
+| `Policy` | Singleton bounds: max loan amount, rate range (bps), allowed terms, agent-authority tier ladder, borrower-tier ladder, expiry TTL, evidence-hash format. Governance-gated; the worker cannot change it. |
+| `Loan` | Singleton. Owns the `Pending → Originated → (Repaid \| Defaulted)` state machine for every loan, keyed by integer ID. Enforces nonce replay protection. Has a one-way `demoMode` flag: when locked to production mode, only `markRepaidWithProof` (which calls the BlockProver precompile) is accepted. |
+| `AgentReputation` | Singleton append-mostly ledger of the agent's cumulative loans/repaid/defaulted and a derived score. Auto-pauses Policy on 5 defaults. |
+| `BorrowerReputation` | Per-borrower repaid/defaulted counts; feeds the borrower-tier ladder. |
+| `LiquidityPool` | Singleton; holds real ERC-20 tokens (MockUSDC on testnet). Origination moves tokens to the borrower; repayment pulls them back. |
 
 ## Trust model
 
@@ -51,7 +51,8 @@ EVM contracts deployed to Creditcoin CC3 Testnet:
 | Borrower wallet address | User input | User-asserted; verified by wallet signature |
 | Borrower Ethereum activity | Sepolia via Attestcoin proof | Cryptographically verified (precompile) |
 | Agent decision (rate, term) | LLM via worker | Bounded by `Policy`; reasoning hash is on-chain |
-| Repayment / default status | Attestcoin-verified events | Cryptographically verified |
+| Repayment status | `Loan.markRepaidWithProof` → BlockProver precompile | Contract-verified (not worker-trusted). In production mode, the worker cannot mark a loan repaid without a real, attested Sepolia transaction. |
+| Default status | Attestcoin-verified events | Cryptographically verified |
 | Borrower + agent reputation | On-chain state | Deterministic; reproducible from chain |
 
 Categories are never blurred — demo/synthetic data is always labelled `demoMode: true` in API responses and never mixed with verified data.
@@ -67,6 +68,23 @@ The worker is built to demo safely. Every external dependency has a tested fallb
 
 ## Repositories of state
 
-- **Immutable / on-chain**: loan terms, reputation ledgers, attestation proofs, decision reasoning hashes.
+- **Immutable / on-chain**: loan terms, reputation ledgers, per-factor attestation proof hashes, decision reasoning hashes, borrower nonces.
 - **Off-chain cache (30-day TTL)**: LLM reasoning transcripts; only their hash is persisted on-chain.
 - **Never stored**: borrower private keys (the frontend signs only; the worker never holds them).
+
+## On-chain accountability (the 10 Policy checks)
+
+`Policy.validateDecision` enforces 10 on-chain checks before a loan can originate:
+
+1. **Not paused** — governance or auto-pause can halt all lending.
+2. **Amount > 0** — no zero loans.
+3. **Amount ≤ global cap** — governance-set ceiling.
+4. **Amount ≤ agent tier cap** — the agent's reputation score gates its lending capacity.
+5. **Amount ≤ borrower tier cap** — a first-time borrower is capped at $25; a returning borrower with verified repayments unlocks more.
+6. **Rate within bounds** — min/max APR enforced.
+7. **Term allowed** — only 7/30/90 days.
+8. **Sufficient liquidity** — the pool must have enough available capital.
+9. **Expiry TTL** — the decision must not be stale (20-block window).
+10. **Evidence-hash format** — the decision must carry a non-zero evidence hash.
+
+Plus nonce replay protection in `Loan.originate` — the same decision cannot be submitted twice.
