@@ -140,6 +140,13 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 - All 5 were proven via the Attestcoin ProofBuilder and verified by the BlockProver precompile
 - Verified factors: `txCount90d=5`, `stablecoinVolume90d=$10,750`, `demoMode=false`
 
+**Real loan originated + repaid on CC3 Testnet:**
+- Loan #1: $25 at 5% APR for 7 days — originated via `Loan.originate()`, real ERC-20 tokens moved from the LiquidityPool to the borrower
+- Origin tx: `0x89cc6d8d6c44acf5eb0c481c7f3c2577b32c49018104b524dee994efade43b99`
+- Repaid via `Loan.markRepaid()` — real ERC-20 tokens moved back to the pool, AgentReputation updated on-chain
+- Repay tx: `0xc79b734fd639e0f676d2c45aa04bb1085e9aabbb786e4488a89a62f8123b1f04`
+- Agent score after repayment: 510 (500 base + 10 for verified repayment)
+
 ## Borrower flow
 
 The Next.js frontend (`src/`) implements the end-to-end borrower journey as a single linear flow, with every transaction hash surfaced as a clickable explorer link.

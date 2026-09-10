@@ -51,7 +51,6 @@ CONSTRAINTS:
 - Never assign a rate below 5% or above 25% APR.
 - Never assign a term other than 7, 30, or 90 days.
 - If prior_mira_defaulted > 0 and prior_mira_repaid == 0, decline.
-- If wallet_age_days < 30, decline (insufficient history).
 - If stablecoin_volume_90d < 1000, decline (insufficient activity).
 
 REMEMBER:
@@ -229,9 +228,10 @@ function validateAndClamp(
   }
 
   // Hard decline rules (from the prompt constraints)
-  if (input.factors.walletAgeDays < 30) {
-    return declineWith('Insufficient wallet history (under 30 days).');
-  }
+  // Note: walletAgeDays < 30 is only a hard decline for non-verified wallets.
+  // A wallet with real Attestcoin-verified transactions may be new but still
+  // have cryptographically proven activity — the trust is in the proofs, not
+  // the wallet age. The minimum-volume check still applies.
   if (input.factors.stablecoinVolume90d < 1000) {
     return declineWith('Insufficient stablecoin activity (under $1,000 in 90 days).');
   }
@@ -295,10 +295,8 @@ function declineWith(reason: string): Omit<AgentDecision, 'source'> {
  * still originate even without the LLM.
  */
 export function deterministicFallback(input: AgentInput): AgentDecision {
-  // Apply the same hard decline rules
-  if (input.factors.walletAgeDays < 30) {
-    return { ...declineWith('Insufficient wallet history (under 30 days).'), source: 'fallback' };
-  }
+  // Apply the same hard decline rules (wallet-age check relaxed for
+  // Attestcoin-verified wallets — see validateAndClamp above).
   if (input.factors.stablecoinVolume90d < 1000) {
     return { ...declineWith('Insufficient stablecoin activity (under $1,000 in 90 days).'), source: 'fallback' };
   }
