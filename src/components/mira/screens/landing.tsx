@@ -29,6 +29,8 @@ import {
   Github,
   BookOpen,
   Sparkles,
+  ShieldX,
+  FlaskConical,
 } from 'lucide-react';
 import { Reveal } from '@/components/landing/reveal';
 import { ArchitectureDiagram } from '@/components/landing/architecture-diagram';
@@ -81,9 +83,13 @@ const EXT_REL = 'noopener noreferrer';
 export function Landing({
   onLaunch,
   onOpenReputation,
+  onOpenAttack,
+  onOpenExperiment,
 }: {
   onLaunch: () => void;
   onOpenReputation: () => void;
+  onOpenAttack: () => void;
+  onOpenExperiment: () => void;
 }) {
   return (
     <>
@@ -150,6 +156,14 @@ export function Landing({
                 <Button size="lg" variant="outline" onClick={onOpenReputation}>
                   View agent reputation
                   <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+                <Button size="lg" variant="outline" onClick={onOpenAttack}>
+                  <ShieldX className="mr-2 h-4 w-4" />
+                  Attack MIRA
+                </Button>
+                <Button size="lg" variant="outline" onClick={onOpenExperiment}>
+                  <FlaskConical className="mr-2 h-4 w-4" />
+                  AI experiment
                 </Button>
                 <Button size="lg" variant="ghost" asChild>
                   <Link

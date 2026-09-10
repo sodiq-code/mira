@@ -110,6 +110,8 @@ export function MiraApp() {
               <Landing
                 onLaunch={() => setView('connect')}
                 onOpenReputation={() => setView('reputation')}
+                onOpenAttack={() => setView('attack')}
+                onOpenExperiment={() => setView('experiment')}
               />
             )}
             {view === 'connect' && <ConnectWallet />}
