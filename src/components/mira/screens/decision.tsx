@@ -33,6 +33,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { VerifiedBadge } from '@/components/mira/ui/verified-badge';
+import { AuditTrail, type DecisionReceipt } from '@/components/mira/ui/audit-trail';
 import { useMiraStore } from '@/lib/mira/store-client';
 import type { LoanDecision, VerifiedFactors } from '@mira/shared';
 
@@ -171,6 +172,30 @@ export function Decision() {
                 The agent&apos;s track record lives in an on-chain ledger it cannot tamper with.
               </p>
             </div>
+
+            {/* Audit trail: Decision → Evidence → AI reasoning → Policy checks → FINAL */}
+            {credit && (
+              <AuditTrail
+                decision={decision.decision}
+                approvedAmount={decision.approvedAmount}
+                interestRateApr={decision.interestRateApr}
+                confidence={decision.confidence}
+                reasoning={decision.reasoning}
+                factors={credit.factors}
+                proofTxHashes={credit.proofTxHashes}
+                loanId={decision.loanId || undefined}
+                originTxHash={decision.originTxHash || undefined}
+                receipt={{
+                  decisionId: decision.loanId || `decision-${Date.now()}`,
+                  evidenceHash: credit.proofTxHashes[0] ?? '0x0000',
+                  policyVersion: 'v1',
+                  modelVersion: 'mira-underwriter-v1',
+                  riskScore: decision.confidence,
+                  timestamp: new Date().toISOString(),
+                  outcome: decision.decision === 'decline' ? 'Declined' : 'Approved',
+                }}
+              />
+            )}
 
             <Separator />
 
