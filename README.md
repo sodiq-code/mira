@@ -107,10 +107,9 @@ All contracts are deployed and verified on Creditcoin CC3 Testnet. The agent rep
 - Auto-paused: false
 
 **Liquidity pool (real ERC-20 custody):**
-- Available capital: $10,000 USDC
+- Available capital: ~$9,967 USDC (real tokens lent out via 20 originated loans, 15 repaid)
 - Total deposits: $10,000 USDC
-- Token balance: 10,000,000,000 units (6-decimal USDC)
-- Utilization: 0%
+- Utilization: ~0.3% (5 outstanding loans)
 
 **Attestcoin verification (live):**
 - `TransactionVerified` event emitted on CC3 Testnet: `0xa685eb0eb5fdcbeaae86655acaf8339d3662ecaa31933e31918d3b5fb88bde31`
