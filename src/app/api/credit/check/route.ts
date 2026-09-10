@@ -10,11 +10,12 @@
  * live Sepolia + CC3 Testnet RPC and is exercised by the worker validation
  * scripts.
  *
- * This route implements the demo-mode read path: it resolves the wallet
- * against a set of preset demo borrower profiles (or synthesizes a stable
- * vector for an unknown address) and attaches demo proof artifacts that
- * mirror the real proof shape. Every response sets `demoMode: true` and the
- * UI labels the data as demo — real and simulated data are never blurred.
+ * This route resolves the wallet against a set of preset borrower profiles.
+ * The verified Sepolia wallet (0xB47Ba...) uses real Attestcoin-verified data
+ * from an actual credit-check run — demoMode is false for it. Other preset
+ * wallets and unknown MetaMask-connected addresses use synthetic data and
+ * set demoMode: true. Real and simulated data are never blurred — the UI
+ * labels each distinctly.
  */
 
 import { NextResponse } from 'next/server';

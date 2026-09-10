@@ -1,10 +1,10 @@
 # MIRA
 
-**An autonomous, verifiable credit agent that underwrites, disburses, and manages micro-loans on Creditcoin using Attestcoin-verified cross-chain data — and accrues a portable on-chain reputation it cannot fake.**
+**A self-accountable credit agent whose decisions, capital, and reputation are cryptographically accountable on-chain.**
 
 **Live app:** https://mira-credit-agent.vercel.app — deployed on Vercel, reading real on-chain state from CC3 Testnet contracts.
 
-MIRA gives an AI agent its first on-chain credit score. A borrower connects an Ethereum wallet; MIRA reads the wallet's verified activity through the Attestcoin Protocol, decides a loan in roughly one synchronous Creditcoin block (~15 seconds), disburses it on-chain, and then proves the decision was right by tracking repayments that update the agent's own reputation ledger.
+You shouldn't trust the AI. You should trust the evidence, the policy, and the agent's track record. MIRA is an autonomous lender that underwrites micro-loans on Creditcoin using Attestcoin-verified cross-chain data — and accrues a portable on-chain reputation it cannot fake. A borrower connects an Ethereum wallet; MIRA reads the wallet's verified activity, decides a loan in roughly one synchronous Creditcoin block (~15 seconds), disburses it on-chain, and then proves the decision was right by tracking repayments that update the agent's own reputation ledger.
 
 ---
 
