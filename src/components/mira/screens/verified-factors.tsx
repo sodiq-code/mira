@@ -6,13 +6,15 @@
  * Shows the Attestcoin-verified feature vector: wallet age, 90-day tx
  * count, 90-day stablecoin volume, DeFi position count, and prior MIRA
  * history. Every factor carries a clickable proof tx hash that opens in the
- * CC3 Testnet explorer.
+ * CC3 Testnet explorer, and clicking a factor card opens a proof detail
+ * dialog with the full Merkle + continuity proof structure.
  *
  * If the wallet did not verify (insufficient activity), the screen shows a
  * clear decline notice and a path back to try another wallet — MIRA never
  * invents factors.
  */
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   CalendarClock,
@@ -24,6 +26,7 @@ import {
   AlertCircle,
   ArrowRight,
   RotateCcw,
+  Info,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,12 +35,15 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { VerifiedBadge } from '@/components/mira/ui/verified-badge';
 import { TxHash } from '@/components/mira/ui/tx-hash';
+import { ProofDetailDialog } from '@/components/mira/ui/proof-detail-dialog';
 import { useMiraStore } from '@/lib/mira/store-client';
 import { cc3TxUrl, sepoliaTxUrl } from '@/lib/mira/explorer';
+import type { DemoProof } from '@/lib/mira/proofs';
 
 export function VerifiedFactors() {
   const { wallet, credit, creditLoading, creditError, proofs, setView, resetFlow } =
     useMiraStore();
+  const [activeProof, setActiveProof] = useState<DemoProof | null>(null);
 
   if (creditLoading || (!credit && !creditError)) {
     return <FactorsSkeleton />;
@@ -126,17 +132,20 @@ export function VerifiedFactors() {
       </motion.div>
 
       {credit.demoMode && (
-        <div className="mt-6 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] p-3 text-xs text-amber-700 dark:text-amber-400">
+        <div className="mt-6 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] p-3 text-xs leading-relaxed text-amber-700 dark:text-amber-400">
           <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            Demo mode: synthetic data stands in for live Sepolia reads so the flow is reliable. Real
-            and simulated data are never blurred. Run the worker validation script for the live
-            read path.
+            <strong className="font-semibold">Demo mode.</strong> Synthetic data stands in for live
+            Sepolia reads so the flow is reliable. Real and simulated data are never blurred. Run{' '}
+            <code className="rounded bg-amber-500/10 px-1 font-mono">
+              bun run worker:validate
+            </code>{' '}
+            for the live read path.
           </span>
         </div>
       )}
 
-      {/* Factors grid */}
+      {/* Factors grid — equal-height cards, click to open proof detail */}
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         {factorRows.map((row, i) => {
           const proof = proofs[i];
@@ -147,19 +156,43 @@ export function VerifiedFactors() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: i * 0.05 }}
             >
-              <Card className="group h-full transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-500/40">
+              <Card
+                role={proof ? 'button' : undefined}
+                tabIndex={proof ? 0 : undefined}
+                onClick={proof ? () => setActiveProof(proof) : undefined}
+                onKeyDown={
+                  proof
+                    ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setActiveProof(proof);
+                        }
+                      }
+                    : undefined
+                }
+                className={`group flex h-full flex-col transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-500/40 hover:shadow-md ${
+                  proof ? 'cursor-pointer' : ''
+                }`}
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 transition-transform group-hover:scale-110">
                       <row.icon className="h-4 w-4" />
                     </div>
-                    <VerifiedBadge />
+                    <div className="flex items-center gap-1">
+                      <VerifiedBadge />
+                      {proof && (
+                        <span className="text-[10px] text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+                          <Info className="inline h-3 w-3" /> details
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <CardTitle className="mt-3 font-mono text-2xl tracking-tight">
                     {row.value}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="mt-auto flex flex-1 flex-col">
                   <p className="text-sm font-medium">{row.label}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">{row.hint}</p>
                   {proof && (
@@ -168,11 +201,13 @@ export function VerifiedFactors() {
                         hash={proof.sepoliaTxHash}
                         href={sepoliaTxUrl(proof.sepoliaTxHash)}
                         label="Sepolia"
+                        copyable={false}
                       />
                       <TxHash
                         hash={proof.cc3VerificationTxHash}
                         href={cc3TxUrl(proof.cc3VerificationTxHash)}
                         label="CC3 verify"
+                        copyable={false}
                       />
                     </div>
                   )}
@@ -193,13 +228,13 @@ export function VerifiedFactors() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="mx-auto grid max-w-md grid-cols-3 gap-4 text-center">
             <Stat label="Prior loans" value={factors.priorMiraLoans} />
             <Stat label="Repaid" value={factors.priorMiraRepaid} accent="emerald" />
             <Stat label="Defaulted" value={factors.priorMiraDefaulted} accent="red" />
           </div>
           {!priorHistory && (
-            <p className="mt-3 text-xs text-muted-foreground">
+            <p className="mt-3 text-center text-xs text-muted-foreground">
               No prior MIRA loans — this is a first-time borrower.
             </p>
           )}
@@ -218,7 +253,7 @@ export function VerifiedFactors() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm leading-relaxed text-muted-foreground">
               This wallet does not meet MIRA&apos;s minimum underwriting thresholds (30 days age,
               $1,000 stablecoin volume). MIRA declines rather than invent factors.
             </p>
@@ -246,6 +281,12 @@ export function VerifiedFactors() {
           </Button>
         </div>
       )}
+
+      <ProofDetailDialog
+        proof={activeProof}
+        open={!!activeProof}
+        onOpenChange={(o) => !o && setActiveProof(null)}
+      />
     </div>
   );
 }

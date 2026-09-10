@@ -16,6 +16,14 @@ node_modules
 /.next/
 /out/
 
+# platform-generated default assets (unused by this project)
+/public/logo.svg
+/public/next.svg
+/public/vercel.svg
+/public/file.svg
+/public/window.svg
+/public/globe.svg
+
 # production
 /build
 

@@ -128,7 +128,8 @@ export function AgentReputationDashboard() {
                 </p>
               ) : (
                 <div className="max-h-96 overflow-y-auto pr-1">
-                  <table className="w-full text-sm">
+                  {/* Desktop: full table */}
+                  <table className="hidden w-full text-sm sm:table">
                     <thead className="sticky top-0 bg-card text-left text-xs text-muted-foreground">
                       <tr>
                         <th className="pb-2 pr-3 font-medium">Loan</th>
@@ -143,7 +144,7 @@ export function AgentReputationDashboard() {
                       {reputation.recentLoans.map((loan) => (
                         <tr key={loan.loanId} className="text-xs">
                           <td className="py-2.5 pr-3">
-                            <TxHash hash={loan.loanId} href={cc3TxUrl(loan.loanId)} />
+                            <TxHash hash={loan.loanId} href={cc3TxUrl(loan.loanId)} copyable={false} />
                           </td>
                           <td className="py-2.5 pr-3 text-muted-foreground">
                             {loan.borrowerLabel ?? loan.borrower.slice(0, 8) + '…'}
@@ -162,12 +163,50 @@ export function AgentReputationDashboard() {
                       ))}
                     </tbody>
                   </table>
+
+                  {/* Mobile: stacked cards */}
+                  <ul className="space-y-2 sm:hidden">
+                    {reputation.recentLoans.map((loan) => (
+                      <li
+                        key={loan.loanId}
+                        className="rounded-lg border border-border/60 bg-muted/20 p-3"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <TxHash
+                            hash={loan.loanId}
+                            href={cc3TxUrl(loan.loanId)}
+                            copyable={false}
+                          />
+                          <StatusBadge status={loan.status} />
+                        </div>
+                        <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                          <div>
+                            <div className="text-muted-foreground">Borrower</div>
+                            <div className="truncate font-medium">
+                              {loan.borrowerLabel ?? loan.borrower.slice(0, 8) + '…'}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Amount</div>
+                            <div className="font-mono font-medium">${loan.amount}</div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Rate</div>
+                            <div className="font-mono font-medium">{loan.rate.toFixed(1)}%</div>
+                          </div>
+                        </div>
+                        <div className="mt-2 text-[11px] font-mono text-muted-foreground">
+                          Block #{loan.originatedBlock.toLocaleString()}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          <div className="mt-6 flex items-center justify-between">
+          <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Button variant="ghost" onClick={() => setView('landing')}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to home
@@ -233,14 +272,16 @@ function StatCard({
 }
 
 function StatusBadge({ status }: { status: LoanStatus }) {
+  // Solid fills for stronger contrast than the outline variant — a status
+  // badge should read as a state signal, not a label.
   const map: Record<LoanStatus, string> = {
-    Pending: 'border-border text-muted-foreground',
-    Originated: 'border-amber-500/40 text-amber-600',
-    Repaid: 'border-emerald-500/40 text-emerald-600',
-    Defaulted: 'border-destructive/40 text-destructive',
+    Pending: 'bg-muted text-muted-foreground border-border',
+    Originated: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30',
+    Repaid: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30',
+    Defaulted: 'bg-destructive/15 text-destructive border-destructive/30',
   };
   return (
-    <Badge variant="outline" className={`text-[10px] ${map[status]}`}>
+    <Badge variant="outline" className={`text-[10px] font-semibold ${map[status]}`}>
       {status}
     </Badge>
   );

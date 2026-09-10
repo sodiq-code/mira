@@ -19,6 +19,7 @@ import { Home, Award, RotateCcw, Github } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MiraWordmark } from '@/components/mira/ui/mira-mark';
+import { ThemeToggle } from '@/components/mira/ui/theme-toggle';
 import { useMiraStore } from '@/lib/mira/store-client';
 import { Landing } from '@/components/mira/screens/landing';
 import { ConnectWallet } from '@/components/mira/screens/connect-wallet';
@@ -69,6 +70,7 @@ export function MiraApp() {
                 <span className="hidden sm:inline">Restart</span>
               </Button>
             )}
+            <ThemeToggle />
             <Button variant="ghost" size="sm" asChild>
               <a
                 href="https://github.com/sodiq-code/mira"

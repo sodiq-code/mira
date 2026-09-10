@@ -22,6 +22,11 @@ import {
   ArrowRight,
   RotateCcw,
   Gauge,
+  CalendarClock,
+  Activity,
+  Coins,
+  Layers,
+  History,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,10 +34,10 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { VerifiedBadge } from '@/components/mira/ui/verified-badge';
 import { useMiraStore } from '@/lib/mira/store-client';
-import type { LoanDecision } from '@mira/shared';
+import type { LoanDecision, VerifiedFactors } from '@mira/shared';
 
 export function Decision() {
-  const { decision, setView, resetFlow } = useMiraStore();
+  const { decision, credit, setView, resetFlow } = useMiraStore();
   if (!decision) return null;
 
   const isDecline = decision.decision === 'decline';
@@ -124,6 +129,14 @@ export function Decision() {
                 {decision.reasoning}
               </p>
             </div>
+
+            {/* How MIRA decided — the verified factor breakdown */}
+            {credit && (
+              <DecisionFactorsBreakdown
+                factors={credit.factors}
+                decision={decision.decision}
+              />
+            )}
 
             {/* Reputation snapshot */}
             <div>
@@ -234,6 +247,160 @@ function RepStat({
       <div className="mt-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
+    </div>
+  );
+}
+
+/**
+ * How MIRA decided — a compact breakdown of the verified factors and the
+ * signal each sent to the agent. Each factor gets a positive / negative /
+ * neutral marker so a judge can see at a glance what drove the decision,
+ * not just read the paragraph.
+ */
+function DecisionFactorsBreakdown({
+  factors,
+  decision,
+}: {
+  factors: VerifiedFactors;
+  decision: LoanDecision;
+}) {
+  type Signal = 'positive' | 'negative' | 'neutral';
+  const items: Array<{
+    icon: typeof CalendarClock;
+    label: string;
+    value: string;
+    signal: Signal;
+    note: string;
+  }> = [
+    {
+      icon: CalendarClock,
+      label: 'Wallet age',
+      value: `${factors.walletAgeDays} days`,
+      signal: factors.walletAgeDays >= 180 ? 'positive' : factors.walletAgeDays >= 30 ? 'neutral' : 'negative',
+      note:
+        factors.walletAgeDays >= 180
+          ? 'Established history'
+          : factors.walletAgeDays >= 30
+            ? 'Meets minimum'
+            : 'Below 30-day minimum',
+    },
+    {
+      icon: Coins,
+      label: '90d stablecoin volume',
+      value: `$${factors.stablecoinVolume90d.toLocaleString()}`,
+      signal:
+        factors.stablecoinVolume90d >= 10000
+          ? 'positive'
+          : factors.stablecoinVolume90d >= 1000
+            ? 'neutral'
+            : 'negative',
+      note:
+        factors.stablecoinVolume90d >= 10000
+          ? 'Strong activity'
+          : factors.stablecoinVolume90d >= 1000
+            ? 'Meets minimum'
+            : 'Below $1,000 minimum',
+    },
+    {
+      icon: Activity,
+      label: '90d transactions',
+      value: factors.txCount90d.toLocaleString(),
+      signal: factors.txCount90d >= 50 ? 'positive' : factors.txCount90d >= 10 ? 'neutral' : 'negative',
+      note:
+        factors.txCount90d >= 50 ? 'Active wallet' : factors.txCount90d >= 10 ? 'Moderate' : 'Low activity',
+    },
+    {
+      icon: Layers,
+      label: 'DeFi positions',
+      value: factors.defiPositionCount.toLocaleString(),
+      signal:
+        factors.defiPositionCount >= 4
+          ? 'positive'
+          : factors.defiPositionCount >= 1
+            ? 'neutral'
+            : 'negative',
+      note:
+        factors.defiPositionCount >= 4 ? 'Diversified' : factors.defiPositionCount >= 1 ? 'Some usage' : 'None',
+    },
+    {
+      icon: History,
+      label: 'Prior MIRA record',
+      value:
+        factors.priorMiraLoans === 0
+          ? 'First loan'
+          : `${factors.priorMiraRepaid}/${factors.priorMiraLoans} repaid`,
+      signal:
+        factors.priorMiraDefaulted > 0 && factors.priorMiraRepaid === 0
+          ? 'negative'
+          : factors.priorMiraRepaid > 0
+            ? 'positive'
+            : 'neutral',
+      note:
+        factors.priorMiraDefaulted > 0 && factors.priorMiraRepaid === 0
+          ? 'Prior default, no repayments'
+          : factors.priorMiraRepaid > 0
+            ? 'Good standing'
+            : 'No history',
+    },
+  ];
+
+  const signalStyles: Record<Signal, { dot: string; text: string; chip: string }> = {
+    positive: {
+      dot: 'bg-emerald-500',
+      text: 'text-emerald-600',
+      chip: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+    },
+    negative: {
+      dot: 'bg-destructive',
+      text: 'text-destructive',
+      chip: 'bg-destructive/10 text-destructive',
+    },
+    neutral: {
+      dot: 'bg-amber-500',
+      text: 'text-amber-600',
+      chip: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+    },
+  };
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center gap-2">
+        <ShieldCheck className="h-4 w-4 text-emerald-500" />
+        <span className="text-sm font-medium">How MIRA decided</span>
+        <VerifiedBadge className="ml-auto" label="Verified inputs" />
+      </div>
+      <ul className="divide-y divide-border/50 rounded-lg border border-border/60">
+        {items.map((item, i) => {
+          const styles = signalStyles[item.signal];
+          return (
+            <li
+              key={item.label}
+              className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/30"
+            >
+              <span
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${styles.chip}`}
+              >
+                <item.icon className="h-3.5 w-3.5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium">{item.label}</span>
+                  <span className="font-mono text-sm">{item.value}</span>
+                </div>
+                <div className="mt-0.5 flex items-center gap-1.5">
+                  <span className={`h-1.5 w-1.5 rounded-full ${styles.dot}`} aria-hidden />
+                  <span className={`text-xs ${styles.text}`}>{item.note}</span>
+                </div>
+              </div>
+              {i === items.length - 1 && decision === 'decline' && (
+                <Badge variant="outline" className="border-destructive/30 text-destructive text-[10px]">
+                  Blocking
+                </Badge>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
