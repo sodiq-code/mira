@@ -166,6 +166,8 @@ export const useMiraStore = create<MiraState>((set, get) => ({
       applyPhase: 'proof',
       decision: null,
       loan: null,
+      repayResult: null,
+      defaultResult: null,
     });
     try {
       // Animate the three-phase "wow" wait. The phases mirror the real
