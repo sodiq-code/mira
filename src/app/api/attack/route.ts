@@ -29,10 +29,13 @@ const LOAN_ABI = [
   'function originate(address borrower, uint256 amount, uint256 rate, uint256 term, bytes32 decisionReasoningHash, bytes32 attestationProofHash, bytes32[] factorProofHashes) returns (uint256)',
 ];
 const POLICY_ABI = [
-  'function validateDecision((address borrower, uint256 amount, uint256 rate, uint256 term)) view returns (bool)',
+  'function validateDecision((address borrower, uint256 amount, uint256 rate, uint256 term, uint256 nonce, uint256 expiresAtBlock, bytes32 evidenceHash)) view returns (bool)',
   'function agentTierCap(uint256 score) pure returns (uint256)',
+  'function borrowerTierCap(uint256 repaidCount) pure returns (uint256)',
+  'function effectiveBorrowerCap(address borrower) view returns (uint256)',
   'function maxLoanAmount() view returns (uint256)',
   'function minRate() view returns (uint256)',
+  'function maxRate() view returns (uint256)',
   'function paused() view returns (bool)',
 ];
 const AGENT_REP_ABI = [
@@ -92,6 +95,9 @@ export async function POST(request: Request) {
           amount: maliciousAmount,
           rate: maliciousRate,
           term: 30n,
+          nonce: 0n,
+          expiresAtBlock: 0n,
+          evidenceHash: ethers.id('attack-ev'),
         };
         const accepted = await policy.validateDecision(decision);
 
@@ -264,6 +270,9 @@ export async function POST(request: Request) {
           amount: 2500n, // $25 (within tier cap)
           rate: 1200n, // 12%
           term: 30n,
+          nonce: 0n,
+          expiresAtBlock: 0n,
+          evidenceHash: ethers.id('attack-ev'),
         };
         const accepted = await policy.validateDecision(decision);
 
@@ -291,6 +300,9 @@ export async function POST(request: Request) {
           amount: 2500n,
           rate: 1200n,
           term: 30n,
+          nonce: 0n,
+          expiresAtBlock: 0n,
+          evidenceHash: ethers.id('attack-ev'),
         };
         const accepted = await policy.validateDecision(decision);
 
@@ -326,6 +338,9 @@ export async function POST(request: Request) {
           amount: excessiveAmount,
           rate: 1200n,
           term: 30n,
+          nonce: 0n,
+          expiresAtBlock: 0n,
+          evidenceHash: ethers.id('attack-ev'),
         };
         const accepted = await policy.validateDecision(decision);
 
