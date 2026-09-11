@@ -17,7 +17,7 @@ The borrower gets a credit score. The AI lender gets a credit score too. That is
 
 ---
 
-## The killer demo
+## The reputation loop in action
 
 The agent has already earned, lost, and re-earned its capital authority — through its own on-chain outcomes, no human intervention.
 
