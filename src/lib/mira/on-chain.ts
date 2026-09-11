@@ -122,3 +122,63 @@ export async function readOnChainLiquidityPool(): Promise<OnChainLiquidityPool |
     return null;
   }
 }
+
+/**
+ * Read the most recent loans from the deployed Loan contract on CC3 Testnet.
+ * Iterates backward from nextLoanId and returns the most recent N loans
+ * with their on-chain state. Amounts are converted from cents to USD.
+ */
+const LOAN_ABI = [
+  'function nextLoanId() view returns (uint256)',
+  'function getLoan(uint256) view returns (address borrower, uint256 amount, uint256 rate, uint256 term, uint256 dueBlock, uint256 originatedBlock, uint8 loanStatus, bytes32 attestationProofHash)',
+];
+
+export interface OnChainLoan {
+  loanId: number;
+  borrower: string;
+  amount: number;       // USD (converted from cents)
+  rate: number;         // APR % (converted from bps)
+  term: number;         // days
+  status: string;       // 'Originated' | 'Repaid' | 'Defaulted'
+  originatedBlock: number;
+  dueBlock: number;
+}
+
+export async function readRecentOnChainLoans(count = 10): Promise<OnChainLoan[]> {
+  const loanAddr = process.env.LOAN_ADDRESS;
+  const rpcUrl = process.env.CREDITCOIN_RPC_URL ?? 'https://rpc.cc3-testnet.creditcoin.network';
+
+  if (!loanAddr) return [];
+
+  try {
+    const provider = new JsonRpcProvider(rpcUrl);
+    const loan = new Contract(loanAddr, LOAN_ABI, provider);
+    const nextId = Number(await loan.nextLoanId());
+
+    const loans: OnChainLoan[] = [];
+    const start = Math.max(1, nextId - count);
+    for (let i = nextId - 1; i >= start; i--) {
+      try {
+        const data = await loan.getLoan(i);
+        const statusNum = Number(data.loanStatus);
+        const status = ['Pending', 'Originated', 'Repaid', 'Defaulted'][statusNum] ?? 'Unknown';
+        loans.push({
+          loanId: i,
+          borrower: data.borrower,
+          amount: Number(data.amount) / 100,   // cents → USD
+          rate: Number(data.rate) / 100,       // bps → APR%
+          term: Number(data.term),
+          status,
+          originatedBlock: Number(data.originatedBlock),
+          dueBlock: Number(data.dueBlock),
+        });
+      } catch {
+        // Skip loans that can't be read.
+      }
+    }
+    return loans;
+  } catch (err) {
+    console.error('[on-chain-loans] Failed to read Loan contract:', err);
+    return [];
+  }
+}

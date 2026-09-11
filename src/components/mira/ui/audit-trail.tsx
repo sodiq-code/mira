@@ -89,7 +89,7 @@ export function AuditTrail({
       name: 'Amount within tier cap',
       passed: decision !== 'decline',
       detail: decision !== 'decline'
-        ? `$${(approvedAmount / 100).toFixed(2)} ≤ agent tier cap`
+        ? `$${approvedAmount.toFixed(2)} ≤ agent tier cap`
         : 'Declined — no amount to check',
     },
     {
@@ -138,7 +138,7 @@ export function AuditTrail({
         badgeTone={decision === 'decline' ? 'red' : 'emerald'}
       >
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <ReceiptField label="Amount" value={decision === 'decline' ? '—' : `$${(approvedAmount / 100).toFixed(2)}`} />
+          <ReceiptField label="Amount" value={decision === 'decline' ? '—' : `$${approvedAmount.toFixed(2)}`} />
           <ReceiptField label="Rate" value={decision === 'decline' ? '—' : `${interestRateApr.toFixed(1)}% APR`} />
           <ReceiptField label="Confidence" value={`${confidence}%`} />
           <ReceiptField label="Verdict" value={decision === 'decline' ? 'Declined' : 'Approved'} />

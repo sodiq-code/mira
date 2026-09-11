@@ -14,18 +14,31 @@
 import { NextResponse } from 'next/server';
 import type { AgentReputationResponse } from '@mira/shared';
 import { getAgentReputation, getRecentLoans } from '@/lib/mira/store';
-import { readOnChainAgentReputation, readOnChainLiquidityPool } from '@/lib/mira/on-chain';
+import { readOnChainAgentReputation, readOnChainLiquidityPool, readRecentOnChainLoans } from '@/lib/mira/on-chain';
 
 export async function GET() {
   // Try the real on-chain contract first.
   const onChainRep = await readOnChainAgentReputation();
   const onChainPool = await readOnChainLiquidityPool();
-  const recentLoans = getRecentLoans(10);
 
   if (onChainRep) {
     // Real on-chain data is available — use it.
+    // Also fetch the most recent on-chain loans (not the demo store).
+    const onChainLoans = await readRecentOnChainLoans(10);
+    const recentLoans = onChainLoans.length > 0
+      ? onChainLoans.map((l) => ({
+          loanId: l.loanId.toString(),
+          borrower: l.borrower,
+          amount: l.amount,
+          rate: l.rate,
+          term: l.term,
+          status: l.status,
+          originatedBlock: l.originatedBlock,
+        }))
+      : getRecentLoans(10); // fallback if on-chain read fails
+
     const response: AgentReputationResponse & {
-      recentLoans: ReturnType<typeof getRecentLoans>;
+      recentLoans: typeof recentLoans;
       onChain: boolean;
       contractAddress: string;
       autoPaused: boolean;
@@ -66,8 +79,9 @@ export async function GET() {
 
   // Fall back to the demo store.
   const rep = getAgentReputation();
+  const recentLoans = getRecentLoans(10);
   const response: AgentReputationResponse & {
-    recentLoans: ReturnType<typeof getRecentLoans>;
+    recentLoans: typeof recentLoans;
     onChain: boolean;
   } = {
     cumulativeLoans: rep.cumulativeLoans,
