@@ -571,13 +571,12 @@ Landing → Connect → Verified factors → Apply → Decision → Originated �
 | `/api/loan/repay` | POST | Repay on CC3 Testnet (uses `markRepaidWithProof` when a Sepolia tx is provided) |
 | `/api/agent/reputation` | GET | Agent's on-chain reputation + liquidity pool state |
 | `/api/agent/activity` | GET | Loan-activity series for the dashboard chart |
-| `/api/agent/overview` | GET | Combined reputation + activity |
 | `/api/loan/history` | GET | Borrower's loan history |
-| `/api/loan/overview` | GET | Combined borrower loan history + reputation + totals |
 | `/api/attack` | POST | Run an adversarial attack, return the on-chain revert reason |
 | `/api/experiment` | GET | 3-strategy underwriting comparison experiment |
 | `/api/ab-comparison` | GET | A/B borrower comparison from live agent reputation + tier ladder |
 | `/api/status` | GET | Latest Attestcoin verification status (queried from CC3 Testnet) |
+| `/api/demo/trigger-default` | POST | Force a loan into Defaulted state (demo convenience for the writability path) |
 
 ## Design principles
 
