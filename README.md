@@ -261,6 +261,8 @@ REPAYMENT (contract-verified proof)
 
 **What is contract-enforced:** the 10 Policy checks + nonce replay protection + production-mode lock. A compromised worker key cannot exceed the agent's tier cap, set an invalid rate, bypass liquidity, replay a decision, or fabricate a repayment.
 
+**Why the reputation loop stays closed:** the agent's score only increases via `recordRepaid`, which in production mode is called exclusively from `markRepaidWithProof` — the path that calls `BlockProver.verify` on-chain. The worker-trusted `markRepaid` path is permanently locked (`demoMode == false`). So even if a compromised worker fabricates origination evidence, it can only approve a bounded-risk loan within all Policy constraints — and that loan must eventually be repaid via a real, attested Sepolia transaction verified by the BlockProver on-chain to improve the agent's score. If the loan defaults, the score goes down. The worker cannot inflate the agent's reputation without real on-chain proof.
+
 ---
 
 ## We tried to break it
