@@ -29,7 +29,7 @@ const TOKEN_ADDRESS = process.env.TOKEN_ADDRESS;
 const LIQUIDITY_POOL_ADDRESS = process.env.LIQUIDITY_POOL_ADDRESS;
 
 const LOAN_ABI = [
-  'function markRepaidWithProof(uint256 loanId, bytes32 repaymentProofHash, uint256 headerNumber, bytes txBytes, (bytes32,(bytes32,bool)[]) merkleProof, (bytes32,bytes32[]) continuityProof) external',
+  'function markRepaidWithProof(uint256 loanId, bytes32 repaymentProofHash, uint256 headerNumber, bytes txBytes, (bytes32 root, (bytes32 hash, bool isLeft)[] siblings) merkleProof, (bytes32 lowerEndpointDigest, bytes32[] roots) continuityProof) external',
   'function getLoan(uint256 loanId) view returns (address borrower, uint256 amount, uint256 rate, uint256 term, uint256 dueBlock, uint256 originatedBlock, uint8 loanStatus, bytes32 attestationProofHash)',
 ];
 const TOKEN_ABI = [
