@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     try {
       const result = await originateOnChainLoan(
         walletAddress,
-        decision.approvedAmount,
+        decision.approvedAmount * 100, // USD → cents
         Math.round(decision.interestRateApr * 100), // APR% → bps
         requestedTermDays,
         decision.reasoning,

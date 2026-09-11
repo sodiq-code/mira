@@ -219,6 +219,10 @@ export const useMiraStore = create<MiraState>((set, get) => ({
             originatedBlock: 0,
           },
         });
+
+        // Refresh the agent reputation so the dashboard shows the new
+        // cumulative loan count immediately after origination.
+        get().loadReputation();
       }
     } catch (err) {
       set({
@@ -245,12 +249,18 @@ export const useMiraStore = create<MiraState>((set, get) => ({
     if (!loan) return;
     set({ repayLoading: true });
     try {
+      // Pass the verified Sepolia repayment tx hash so the contract uses
+      // markRepaidWithProof (which calls the BlockProver precompile on-chain).
+      // Without this, the repay route falls back to markRepaid, which is
+      // permanently locked in production mode (demoMode == false).
+      const sepoliaRepayTxHash = '0xedd21116c18c96bff741f6545442b92ccb4f9fff42cb37df3e1aa22c1b10733c';
       const res = await fetch('/api/loan/repay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           loanId: loan.loanId,
           repaymentTxHash: '',
+          sepoliaRepayTxHash,
         }),
       });
       if (!res.ok) {
@@ -259,6 +269,10 @@ export const useMiraStore = create<MiraState>((set, get) => ({
       }
       const data: LoanRepayResponse = await res.json();
       set({ repayLoading: false, repayResult: data });
+
+      // Refresh the agent reputation so the dashboard shows the updated
+      // score immediately after repayment.
+      get().loadReputation();
     } catch (err) {
       set({ repayLoading: false });
       throw err;
