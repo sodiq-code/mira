@@ -374,7 +374,7 @@ You don't have to trust this README. The chain is the evidence.
 
 1. **Open the [live app](https://mira-credit-agent.vercel.app)** — connect the verified Sepolia wallet.
 2. **Check [AgentReputation](https://creditcoin-testnet.blockscout.com/address/0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46)** — score 675, 20 repaid, 1 defaulted.
-3. **Open the [Loan contract](https://creditcoin-testnet.blockscout.com/address/0xcFc46cbE0a8b015C59177f1fE204d9312326Bd28)** — read `demoMode()` → confirm `false` (production locked).
+3. **Open the [Loan contract](https://creditcoin-testnet.blockscout.com/address/0x63493c2C637db81355546C0e8E67FbF6878aE279)** — read `demoMode()` → confirm `false` (production locked).
 4. **Open the [production-mode lock tx](https://creditcoin-testnet.blockscout.com/tx/0x78d0f9ebd85b353a60c72779cab467b64fc36a65e8cbe5c2054309b32b9accb9)** — the worker-trusted path is permanently closed.
 5. **Open the [proof-verified repayment tx](https://creditcoin-testnet.blockscout.com/tx/0xff58b151530809facae16e70daf6029b8701f918a10d0df8bd936fd6f0eee45a)** — the contract called the BlockProver precompile.
 6. **Open the [proven Sepolia transaction](https://sepolia.etherscan.io/tx/0xedd21116c18c96bff741f6545442b92ccb4f9fff42cb37df3e1aa22c1b10733c)** — the real Ethereum transaction that was proven.
@@ -391,7 +391,7 @@ You don't have to trust this README. The chain is the evidence.
 | AgentReputation | [`0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46`](https://creditcoin-testnet.blockscout.com/address/0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46) |
 | BorrowerReputation | [`0x18919cc60fC52d9077599A306C72b7B48423ed0C`](https://creditcoin-testnet.blockscout.com/address/0x18919cc60fC52d9077599A306C72b7B48423ed0C) |
 | LiquidityPool | [`0xF089D710474AA74199d98586EbFD2be3a7c6502C`](https://creditcoin-testnet.blockscout.com/address/0xF089D710474AA74199d98586EbFD2be3a7c6502C) |
-| Loan | [`0xcFc46cbE0a8b015C59177f1fE204d9312326Bd28`](https://creditcoin-testnet.blockscout.com/address/0xcFc46cbE0a8b015C59177f1fE204d9312326Bd28) |
+| Loan | [`0x63493c2C637db81355546C0e8E67FbF6878aE279`](https://creditcoin-testnet.blockscout.com/address/0x63493c2C637db81355546C0e8E67FbF6878aE279) |
 
 Precompiles:
 
@@ -504,6 +504,8 @@ DEMO MODE (demoMode == true)
 ```
 
 The deployed contract is locked to production mode — `demoMode()` returns `false`. The worker-trusted `markRepaid` path permanently reverts, even when called by the authorized worker.
+
+**Demo default trigger:** `Loan.forceMarkDefaulted()` (governance-only) bypasses the due-block check so the demo can show the default impact immediately without waiting 7-30 days for the loan term to expire. It atomically sets the loan status to Defaulted, updates AgentReputation (score -25), and updates BorrowerReputation. In production, only `markDefaulted()` (with the due-block check) is used — the worker's default-detector calls it when the term has actually expired.
 
 ## Technical tradeoffs
 

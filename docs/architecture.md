@@ -39,7 +39,7 @@ EVM contracts deployed to Creditcoin CC3 Testnet:
 | Contract | Role |
 |---|---|
 | `Policy` | Singleton bounds: max loan amount, rate range (bps), allowed terms, agent-authority tier ladder, borrower-tier ladder, expiry TTL, evidence-hash format. Governance-gated; the worker cannot change it. |
-| `Loan` | Singleton. Owns the `Pending → Originated → (Repaid \| Defaulted)` state machine for every loan, keyed by integer ID. Enforces nonce replay protection. Has a one-way `demoMode` flag: when locked to production mode, only `markRepaidWithProof` (which calls the BlockProver precompile) is accepted. |
+| `Loan` | Singleton. Owns the `Pending → Originated → (Repaid \| Defaulted)` state machine for every loan, keyed by integer ID. Enforces nonce replay protection. Has a one-way `demoMode` flag: when locked to production mode, only `markRepaidWithProof` (which calls the BlockProver precompile) is accepted. Has `forceMarkDefaulted` (governance-only) for demo defaults that bypass the due-block check. |
 | `AgentReputation` | Singleton append-mostly ledger of the agent's cumulative loans/repaid/defaulted and a derived score. Auto-pauses Policy on 5 defaults. |
 | `BorrowerReputation` | Per-borrower repaid/defaulted counts; feeds the borrower-tier ladder. |
 | `LiquidityPool` | Singleton; holds real ERC-20 tokens (MockUSDC on testnet). Origination moves tokens to the borrower; repayment pulls them back. |
