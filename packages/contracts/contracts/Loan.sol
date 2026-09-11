@@ -373,6 +373,28 @@ contract Loan {
         emit LoanDefaulted(loanId, block.number, writabilityActionTxHash);
     }
 
+    /**
+     * Mark a loan as defaulted without waiting for the due block.
+     * Governance-only — used to demonstrate the default impact on the
+     * agent's reputation without waiting 7-30 days for the term to expire.
+     * In production, only markDefaulted (with the due-block check) is used.
+     */
+    function forceMarkDefaulted(uint256 loanId, bytes32 writabilityActionTxHash) external {
+        require(msg.sender == governance, "Loan: not governance");
+        LoanData storage loan = loans[loanId];
+        require(loan.exists, "Loan: loan does not exist");
+        require(loan.status == LoanStatus.Originated, "Loan: not originated");
+
+        loan.status = LoanStatus.Defaulted;
+        loan.defaultBlock = block.number;
+        loan.writabilityActionTxHash = writabilityActionTxHash;
+
+        agentReputation.recordDefaulted(loanId);
+        borrowerReputation.recordDefaulted(loan.borrower);
+
+        emit LoanDefaulted(loanId, block.number, writabilityActionTxHash);
+    }
+
     // ─── Reads ─────────────────────────────────────────────────────────
 
     function status(uint256 loanId) external view returns (LoanStatus) {

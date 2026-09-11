@@ -1,18 +1,16 @@
 /**
  * POST /api/demo/trigger-default
  *
- * Demo-only endpoint: demonstrates the default impact on the agent's
- * reputation by calling AgentReputation.recordDefaulted() directly.
+ * Demo-only endpoint: marks a loan as Defaulted on the Loan contract
+ * and updates the agent's reputation (score -25, cumulativeDefaulted +1).
  *
- * In production, defaults are detected by the worker's default-detector
- * (due-block check) and Loan.markDefaulted() is called — which atomically
- * updates the loan status AND the reputation. The contract requires
- * block.number >= loan.dueBlock, so a freshly originated loan can't be
- * defaulted until its term expires.
+ * Uses Loan.forceMarkDefaulted() (governance-only) which bypasses the
+ * due-block check so the demo can show the default impact immediately
+ * without waiting 7-30 days for the loan term to expire.
  *
- * For the demo, we call recordDefaulted() directly (the worker is
- * authorized via onlyAuthorized) to show the reputation impact (-25
- * score, +1 defaulted) without waiting 7-30 days for the due block.
+ * In production, only Loan.markDefaulted() is used — which requires
+ * block.number >= loan.dueBlock (the worker's default-detector calls it
+ * when the due block has actually passed).
  */
 
 import { NextResponse } from 'next/server';
@@ -24,10 +22,14 @@ import { ethers, Wallet, JsonRpcProvider, Contract } from 'ethers';
 
 const CC3_RPC = process.env.CREDITCOIN_RPC_URL ?? 'https://rpc.cc3-testnet.creditcoin.network';
 const CC3_PK = process.env.CREDITCOIN_PRIVATE_KEY;
+const LOAN_ADDRESS = process.env.LOAN_ADDRESS;
 const AGENT_REP_ADDRESS = process.env.AGENT_REPUTATION_ADDRESS;
 
+const LOAN_ABI = [
+  'function forceMarkDefaulted(uint256 loanId, bytes32 writabilityActionTxHash) external',
+  'function getLoan(uint256) view returns (address borrower, uint256 amount, uint256 rate, uint256 term, uint256 dueBlock, uint256 originatedBlock, uint8 loanStatus, bytes32 attestationProofHash)',
+];
 const REP_ABI = [
-  'function recordDefaulted(uint256 loanId) external',
   'function cumulativeLoans() view returns (uint256)',
   'function cumulativeRepaid() view returns (uint256)',
   'function cumulativeDefaulted() view returns (uint256)',
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'loanId is required' }, { status: 400 });
   }
 
-  if (!AGENT_REP_ADDRESS || !CC3_PK) {
+  if (!LOAN_ADDRESS || !CC3_PK || !AGENT_REP_ADDRESS) {
     return NextResponse.json(
       { error: 'On-chain contracts not configured' },
       { status: 503 },
@@ -67,18 +69,26 @@ export async function POST(request: Request) {
   try {
     const provider = new JsonRpcProvider(CC3_RPC);
     const wallet = new Wallet(CC3_PK, provider);
-    const rep = new Contract(AGENT_REP_ADDRESS, REP_ABI, wallet);
+    const loan = new Contract(LOAN_ADDRESS, LOAN_ABI, wallet);
 
-    // Read the reputation BEFORE the default.
-    const [scoreBefore, defaultedBefore] = await Promise.all([
-      rep.currentScore(),
-      rep.cumulativeDefaulted(),
-    ]);
+    // Verify the loan exists and is Originated.
+    const loanData = await loan.getLoan(BigInt(loanId));
+    const statusNum = Number(loanData.loanStatus);
+    if (statusNum !== 1) {
+      const statusName = ['Pending', 'Originated', 'Repaid', 'Defaulted'][statusNum] ?? 'Unknown';
+      return NextResponse.json(
+        { error: `Loan is ${statusName.toLowerCase()} — only active loans can be defaulted` },
+        { status: 409 },
+      );
+    }
 
-    // Call recordDefaulted directly (worker is authorized via onlyAuthorized).
-    // This updates the agent's score (-25) and cumulative defaulted count (+1).
+    // Call forceMarkDefaulted (governance-only, bypasses due-block check).
+    // This atomically: sets loan status to Defaulted, stores the writability
+    // hash, calls AgentReputation.recordDefaulted (score -25), and calls
+    // BorrowerReputation.recordDefaulted.
+    const writabilityHash = ethers.id(`writability-${loanId}-${Date.now()}`);
     const nonce = await syncNonce(wallet);
-    const tx = await rep.recordDefaulted(BigInt(loanId), {
+    const tx = await loan.forceMarkDefaulted(BigInt(loanId), writabilityHash, {
       nonce, type: 0, gasLimit: 500_000,
     });
     const receipt = await tx.wait();
@@ -89,7 +99,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Read the updated reputation AFTER the default.
+    // Read the updated agent reputation.
+    const rep = new Contract(AGENT_REP_ADDRESS, REP_ABI, provider);
     const [cumLoans, cumRepaid, cumDefaulted, score] = await Promise.all([
       rep.cumulativeLoans(),
       rep.cumulativeRepaid(),
