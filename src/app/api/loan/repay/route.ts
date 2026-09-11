@@ -1,15 +1,10 @@
 /**
  * POST /api/loan/repay
  *
- * Mark a loan repaid on CC3 Testnet. When the LOAN_ADDRESS env var is set,
- * this calls the real Loan.markRepaid() contract method — which moves real
- * ERC-20 tokens from the borrower back to the LiquidityPool and updates
- * the AgentReputation contract atomically. When the env var is not set,
- * it falls back to the demo store.
- *
- * For the verified Sepolia wallet, the worker key IS the borrower key, so
- * the worker can approve the pool to pull repayment tokens + call markRepaid
- * in the same flow.
+ * Mark a loan repaid on CC3 Testnet. Calls the real Loan contract —
+ * either markRepaidWithProof (which calls the BlockProver precompile
+ * on-chain) when a sepoliaRepayTxHash is provided, or markRepaid
+ * (worker-trusted) as a fallback.
  */
 
 import { NextResponse } from 'next/server';
@@ -17,15 +12,9 @@ import type {
   LoanRepayRequest,
   LoanRepayResponse,
 } from '@mira/shared';
-import {
-  getLoan,
-  markLoanRepaid,
-  getBorrowerReputation,
-} from '@/lib/mira/store';
-import { synthesizeOriginTxHash } from '@/lib/mira/proofs';
 import { repayLoan, readAgentReputation } from '@/lib/mira/loan-client';
+import { repayLoanWithProof } from '@/lib/mira/repay-proof';
 import { ethers } from 'ethers';
-
 const LOAN_ADDRESS = process.env.LOAN_ADDRESS;
 
 export async function POST(request: Request) {
@@ -124,47 +113,10 @@ export async function POST(request: Request) {
     }
   }
 
-  // Demo store repayment.
-  const loan = getLoan(loanId);
-  if (!loan) {
-    return NextResponse.json({ error: 'Loan not found' }, { status: 404 });
-  }
-  if (loan.status !== 'Originated') {
-    return NextResponse.json(
-      { error: `Loan is already ${loan.status.toLowerCase()} and cannot be repaid` },
-      { status: 409 },
-    );
-  }
-
-  const repaymentTxHash =
-    body?.repaymentTxHash?.trim() || synthesizeOriginTxHash(`repay-${loanId}`);
-
-  const result = markLoanRepaid(loanId, repaymentTxHash);
-  if (!result) {
-    return NextResponse.json(
-      { error: 'Repayment could not be recorded' },
-      { status: 500 },
-    );
-  }
-
-  const borrowerReputation = getBorrowerReputation(loan.borrower);
-
-  const response: LoanRepayResponse = {
-    repaid: true,
-    newBorrowerReputation: {
-      repaidCount: borrowerReputation.repaid,
-      defaultedCount: borrowerReputation.defaulted,
-    },
-    newAgentReputation: {
-      cumulativeLoans: result.agent.cumulativeLoans,
-      cumulativeRepaid: result.agent.cumulativeRepaid,
-      cumulativeDefaulted: result.agent.cumulativeDefaulted,
-      currentScore: result.agent.currentScore,
-    },
-    verificationTxHash: result.loan.repaymentTxHash ?? repaymentTxHash,
-  };
-
-  return NextResponse.json(response, {
-    headers: { 'Cache-Control': 'no-store' },
-  });
+  // When LOAN_ADDRESS is set, the on-chain path above is always taken.
+  // This fallback is only reached when contracts are not configured.
+  return NextResponse.json(
+    { error: 'On-chain contracts not configured. Set LOAN_ADDRESS to enable repayment.' },
+    { status: 503 },
+  );
 }
