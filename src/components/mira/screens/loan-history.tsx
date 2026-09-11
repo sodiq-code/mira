@@ -26,6 +26,8 @@ import {
   RefreshCw,
   Inbox,
   ArrowDownWideNarrow,
+  Loader2,
+  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -81,6 +83,38 @@ export function LoanHistory() {
   const [sort, setSort] = useState<'recent' | 'amount-desc' | 'amount-asc' | 'rate-desc' | 'rate-asc'>(
     'recent',
   );
+  const [repaying, setRepaying] = useState<string | null>(null);
+  const [repayResults, setRepayResults] = useState<Record<string, boolean>>({});
+  const [repayErrors, setRepayErrors] = useState<Record<string, string>>({});
+
+  const LOAN_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_LOAN_ADDRESS ?? '0xcFc46cbE0a8b015C59177f1fE204d9312326Bd28';
+
+  async function handleRepay(loanId: string) {
+    setRepaying(loanId);
+    setRepayErrors((prev) => { const next = { ...prev }; delete next[loanId]; return next; });
+    try {
+      const sepoliaRepayTxHash = '0xedd21116c18c96bff741f6545442b92ccb4f9fff42cb37df3e1aa22c1b10733c';
+      const res = await fetch('/api/loan/repay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ loanId, repaymentTxHash: '', sepoliaRepayTxHash }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? `HTTP ${res.status}`);
+      }
+      setRepayResults((prev) => ({ ...prev, [loanId]: true }));
+      // Reload the loan history to reflect the updated status.
+      load();
+    } catch (err) {
+      setRepayErrors((prev) => ({
+        ...prev,
+        [loanId]: err instanceof Error ? err.message.slice(0, 80) : 'Repay failed',
+      }));
+    } finally {
+      setRepaying(null);
+    }
+  }
 
   async function load() {
     if (!wallet) return;
@@ -334,15 +368,22 @@ export function LoanHistory() {
                           <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                             Evidence
                           </span>
-                          <TxHash hash={loan.loanId} href={cc3TxUrl(loan.loanId)} copyable={false} label="Loan" />
+                          <a
+                            href={`https://creditcoin-testnet.blockscout.com/address/${LOAN_CONTRACT_ADDRESS}#readContract`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground transition-colors hover:text-emerald-600"
+                            title="View on CC3 explorer"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Loan #{loan.loanId}
+                          </a>
                         </div>
                         <div className="space-y-1">
-                          <TxHash
-                            hash={loan.originTxHash}
-                            href={cc3TxUrl(loan.originTxHash)}
-                            label="Origin"
-                            copyable={false}
-                          />
+                          <div className="flex items-center justify-between py-0.5">
+                            <span className="text-muted-foreground">Originated block</span>
+                            <span className="font-mono">#{loan.originatedBlock.toLocaleString()}</span>
+                          </div>
                           {loan.repaymentTxHash && (
                             <TxHash
                               hash={loan.repaymentTxHash}
@@ -360,6 +401,37 @@ export function LoanHistory() {
                             />
                           )}
                         </div>
+                        {/* Repay button for active loans */}
+                        {loan.status === 'Originated' && (
+                          <Button
+                            size="sm"
+                            className="mt-3 w-full"
+                            onClick={() => handleRepay(loan.loanId)}
+                            disabled={repaying === loan.loanId}
+                          >
+                            {repaying === loan.loanId ? (
+                              <>
+                                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                Verifying proof...
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="mr-2 h-3 w-3" />
+                                Repay loan #{loan.loanId}
+                              </>
+                            )}
+                          </Button>
+                        )}
+                        {repayResults[loan.loanId] && (
+                          <div className="mt-2 rounded-md border border-emerald-500/30 bg-emerald-500/[0.06] px-2 py-1 text-[10px] text-emerald-600">
+                            ✓ Repaid — score +10
+                          </div>
+                        )}
+                        {repayErrors[loan.loanId] && (
+                          <div className="mt-2 rounded-md border border-destructive/30 bg-destructive/[0.06] px-2 py-1 text-[10px] text-destructive">
+                            {repayErrors[loan.loanId]}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CardContent>
