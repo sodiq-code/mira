@@ -126,9 +126,22 @@ export async function POST(request: Request) {
   if (LOAN_ADDRESS) {
     // Real on-chain origination — moves real ERC-20 tokens.
     try {
+      // Clamp the approved amount to the effective borrower cap (the
+      // minimum of the agent tier cap and the borrower tier cap) so the
+      // Policy contract accepts the decision. The LLM may approve more
+      // than the agent's tier cap allows; the contract would reject it.
+      const { JsonRpcProvider, Contract } = await import('ethers');
+      const rpcUrl = process.env.CREDITCOIN_RPC_URL ?? 'https://rpc.cc3-testnet.creditcoin.network';
+      const provider = new JsonRpcProvider(rpcUrl);
+      const policyAbi = ['function effectiveBorrowerCap(address) view returns (uint256)'];
+      const policyContract = new Contract(process.env.POLICY_ADDRESS!, policyAbi, provider);
+      const capCents = Number(await policyContract.effectiveBorrowerCap(walletAddress));
+      const capUsd = Math.floor(capCents / 100); // cents → USD (floor)
+      const clampedAmount = Math.min(decision.approvedAmount, capUsd);
+
       const result = await originateOnChainLoan(
         walletAddress,
-        decision.approvedAmount * 100, // USD → cents
+        clampedAmount * 100, // USD → cents
         Math.round(decision.interestRateApr * 100), // APR% → bps
         requestedTermDays,
         decision.reasoning,
