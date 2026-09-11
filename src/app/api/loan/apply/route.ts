@@ -122,6 +122,7 @@ export async function POST(request: Request) {
   // Originate the loan.
   let loanId: string;
   let originTxHash: string;
+  let actualAmountUsd = decision.approvedAmount; // may be clamped below
 
   if (LOAN_ADDRESS) {
     // Real on-chain origination — moves real ERC-20 tokens.
@@ -137,11 +138,11 @@ export async function POST(request: Request) {
       const policyContract = new Contract(process.env.POLICY_ADDRESS!, policyAbi, provider);
       const capCents = Number(await policyContract.effectiveBorrowerCap(walletAddress));
       const capUsd = Math.floor(capCents / 100); // cents → USD (floor)
-      const clampedAmount = Math.min(decision.approvedAmount, capUsd);
+      actualAmountUsd = Math.min(decision.approvedAmount, capUsd);
 
       const result = await originateOnChainLoan(
         walletAddress,
-        clampedAmount * 100, // USD → cents
+        actualAmountUsd * 100, // USD → cents
         Math.round(decision.interestRateApr * 100), // APR% → bps
         requestedTermDays,
         decision.reasoning,
@@ -197,7 +198,7 @@ export async function POST(request: Request) {
 
   const response: LoanApplyResponse = {
     decision: decision.decision as LoanDecision,
-    approvedAmount: decision.approvedAmount,
+    approvedAmount: actualAmountUsd,
     interestRateApr: decision.interestRateApr,
     confidence: decision.confidence,
     reasoning: decision.reasoning,
