@@ -317,7 +317,8 @@ Every component that handles capital, evidence, or reputation is live on CC3 Tes
 | Borrower reputation | 🟢 Live |
 | Proof-verified repayment | 🟢 Live |
 | Production-mode lock | 🟢 Locked |
-| Convenience demo wallets | 🟡 Explicitly labelled `demoMode: true` |
+| Verified Sepolia wallet (`0xB47Ba…`) | 🟢 Real — `demoMode: false`, feeds the reputation ledger |
+| Convenience demo wallets | 🟡 Explicitly labelled `demoMode: true` — never feed the reputation ledger |
 
 ### What's verified on-chain?
 
