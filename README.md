@@ -1,5 +1,11 @@
 # MIRA
 
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://mira-credit-agent.vercel.app)
+[![YouTube Demo](https://img.shields.io/badge/demo%20video-YouTube-red)](https://youtu.be/slrPZigX6Xo)
+[![Network](https://img.shields.io/badge/network-Creditcoin%20CC3%20Testnet-blue)](https://creditcoin-testnet.blockscout.com)
+[![License](https://img.shields.io/badge/license-MIT-success)](LICENSE)
+[![Demo Video](https://img.shields.io/badge/%E2%96%B6%20watch-3%3A00%20demo-critical)](https://youtu.be/slrPZigX6Xo)
+
 ## The AI lender that has to earn its own credit score.
 
 **AI lenders shouldn't be trusted. They should be accountable.**
@@ -13,7 +19,7 @@ MIRA gives the AI lender its own credit score. Good loans raise it; bad loans lo
 
 The borrower gets a credit score. The AI lender gets a credit score too. That is MIRA.
 
-**▶ [Live Demo](https://mira-credit-agent.vercel.app)** · **🔗 [Verify On-chain](#verify-it-yourself)** · **🏗 [Architecture](docs/architecture.md)** · **🔐 [Attestcoin Integration](docs/attestcoin-integration.md)** · **💻 [Run Locally](#run-locally)**
+**▶ [Live Demo](https://mira-credit-agent.vercel.app)** · **🎬 [Demo Video (3:00)](https://youtu.be/slrPZigX6Xo)** · **🔗 [Verify On-chain](#verify-it-yourself)** · **🏗 [Architecture](docs/architecture.md)** · **🔐 [Attestcoin Integration](docs/attestcoin-integration.md)** · **💻 [Run Locally](#run-locally)**
 
 ---
 
@@ -319,9 +325,9 @@ Every component that handles capital, evidence, or reputation is live on CC3 Tes
 
 The verified Sepolia wallet (`0xB47Ba…`) uses real Attestcoin-verified data (`demoMode: false`). Four preset wallets (`demoMode: true`) let you exercise every underwriting outcome — approve, reduced-approve, decline, prior-default — without setting up multiple real Sepolia wallets. They never feed the reputation ledger.
 
-### What isn't simulated?
+### What's verified on-chain?
 
-MIRA does not simulate:
+MIRA uses a real testnet ERC-20 on Creditcoin CC3 and real Sepolia testnet transactions verified through Attestcoin/BlockProver. The following are all real on-chain operations, not simulations:
 
 - the Creditcoin loan state transition
 - ERC-20 token movement
@@ -511,7 +517,7 @@ The deployed contract is locked to production mode — `demoMode()` returns `fal
 
 ### Why stablecoin Transfers, not Aave Repay events?
 
-Aave V3 is not officially deployed on Ethereum Sepolia. MIRA instead underwrites against real Sepolia ERC-20 `Transfer` events from native USDC/USDT/DAI and a MIRA-deployed MockUSDC test token.
+MIRA underwrites against real Sepolia ERC-20 `Transfer` events from native USDC/USDT/DAI and a MIRA-deployed test ERC-20.
 
 The **cryptographic inclusion guarantee** is equivalent: both are real, attested Sepolia transactions that the BlockProver can verify.
 

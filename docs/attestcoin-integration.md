@@ -111,7 +111,7 @@ are no `Repay` events for the Attestcoin read path to prove.
 
 ### Cryptographic equivalence
 
-MIRA instead uses real Sepolia ERC-20 `Transfer` events — from native
+MIRA uses real Sepolia ERC-20 `Transfer` events — from native
 USDC, USDT, DAI, and a MIRA-deployed MockUSDC test token — as the
 verified financial-activity signal. The load-bearing property is
 identical to what Aave `Repay` events would provide:
