@@ -21,7 +21,13 @@ import type {
 import { ethers, Wallet, JsonRpcProvider, Contract } from 'ethers';
 
 const CC3_RPC = process.env.CREDITCOIN_RPC_URL ?? 'https://rpc.cc3-testnet.creditcoin.network';
-const CC3_PK = process.env.CREDITCOIN_PRIVATE_KEY;
+// forceMarkDefaulted is GOVERNANCE-only (not worker). The worker key
+// (CREDITCOIN_PRIVATE_KEY) cannot call it once production mode is locked
+// and worker/governance are properly separated. This route must sign with
+// the governance key. In production, defaults flow through the worker's
+// markDefaulted() (after the due block); this demo endpoint uses
+// forceMarkDefaulted() so the default lands immediately for the demo.
+const GOV_PK = process.env.GOVERNANCE_PRIVATE_KEY;
 const LOAN_ADDRESS = process.env.LOAN_ADDRESS;
 const AGENT_REP_ADDRESS = process.env.AGENT_REPUTATION_ADDRESS;
 
@@ -59,16 +65,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'loanId is required' }, { status: 400 });
   }
 
-  if (!LOAN_ADDRESS || !CC3_PK || !AGENT_REP_ADDRESS) {
+  if (!LOAN_ADDRESS || !GOV_PK || !AGENT_REP_ADDRESS) {
     return NextResponse.json(
-      { error: 'On-chain contracts not configured' },
+      { error: 'On-chain contracts not configured (GOVERNANCE_PRIVATE_KEY required for forceMarkDefaulted)' },
       { status: 503 },
     );
   }
 
   try {
     const provider = new JsonRpcProvider(CC3_RPC);
-    const wallet = new Wallet(CC3_PK, provider);
+    // Sign with the GOVERNANCE key — forceMarkDefaulted is governance-only.
+    const wallet = new Wallet(GOV_PK, provider);
     const loan = new Contract(LOAN_ADDRESS, LOAN_ABI, wallet);
 
     // Verify the loan exists and is Originated.
