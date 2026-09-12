@@ -58,7 +58,9 @@ The agent has already earned, lost, and re-earned its capital authority — thro
 
 > **The AI earned its authority. Then lost it. Then earned it back.**
 
-32+ loans originated · 20 repaid · 1 defaulted · **score 675** · **$100 capital authority**
+26 loans originated · 22 repaid · 3 defaulted · **score 645** · **$25 capital authority**
+
+*(State at the time of demo recording. [Verify the current state on Blockscout](#verify-it-yourself).)*
 
 ---
 
@@ -261,13 +263,9 @@ REPAYMENT (contract-verified proof)
   invalid proof → REVERT
 ```
 
-**Why the difference?** Each Attestcoin proof is a large Merkle + continuity struct. Verifying 5 proofs on-chain during origination would cost ~5× the gas of a single repayment proof — impractical for a ~15-second block. Instead, the worker pre-validates off-chain (the same gasless `verifyReadonly` call the BlockProver precompile runs), and the contract enforces every bound that matters for capital safety: tier caps, rate bounds, term, liquidity, expiry TTL, nonce ordering, and evidence-hash format. The evidence hashes are stored on-chain so any party can audit them post-hoc.
+**Why the difference?** Two trust models by design: origination is worker-verified + contract-bounded; repayment is contract-verified via `BlockProver.verify` on-chain. The contract stores the per-factor evidence hashes as an audit trail. A compromised worker cannot exceed the agent's tier cap, set an invalid rate, bypass liquidity, submit a stale decision, or fabricate a repayment. Full rationale in [`docs/architecture.md`](docs/architecture.md).
 
-**What is worker-verified:** the Attestcoin inclusion proofs (that the borrower's Sepolia transactions are real and attested).
-
-**What is contract-enforced:** the 10 Policy checks + per-borrower nonce ordering + production-mode lock. A compromised worker key cannot exceed the agent's tier cap, set an invalid rate, bypass liquidity, submit a stale decision, or fabricate a repayment.
-
-**Why the reputation loop stays closed:** the agent's score only increases via `recordRepaid`, which in production mode is called exclusively from `markRepaidWithProof` — the path that calls `BlockProver.verify` on-chain. The worker-trusted `markRepaid` path is permanently locked (`demoMode == false`). So even if a compromised worker fabricates origination evidence, it can only approve a bounded-risk loan within all Policy constraints — and that loan must eventually be repaid via a real, attested Sepolia transaction verified by the BlockProver on-chain to improve the agent's score. If the loan defaults, the score goes down. The worker cannot inflate the agent's reputation without real on-chain proof.
+**Why the reputation loop stays closed:** the agent's score only increases via `recordRepaid`, which in production mode is called exclusively from `markRepaidWithProof` — the path that calls `BlockProver.verify` on-chain. Even if a compromised worker fabricates origination evidence, the loan must eventually be repaid via a real, attested Sepolia transaction verified by the BlockProver on-chain to improve the agent's score. If it defaults, the score goes down. The worker cannot inflate reputation without real on-chain proof.
 
 ---
 
@@ -306,7 +304,7 @@ Each attack calls the real on-chain contracts (gasless `staticCall`) and returns
 
 ## What is real today?
 
-Every component that handles capital, evidence, or reputation is live on CC3 Testnet. The only non-real data is a set of convenience presets that let a reviewer exercise every underwriting outcome without setting up multiple real Sepolia wallets.
+Every component that handles capital, evidence, or reputation is live on CC3 Testnet.
 
 | Component | Status |
 |---|---|
@@ -320,10 +318,6 @@ Every component that handles capital, evidence, or reputation is live on CC3 Tes
 | Proof-verified repayment | 🟢 Live |
 | Production-mode lock | 🟢 Locked |
 | Convenience demo wallets | 🟡 Explicitly labelled `demoMode: true` |
-
-### Why the demo wallets exist
-
-The verified Sepolia wallet (`0xB47Ba…`) uses real Attestcoin-verified data (`demoMode: false`). Four preset wallets (`demoMode: true`) let you exercise every underwriting outcome — approve, reduced-approve, decline, prior-default — without setting up multiple real Sepolia wallets. They never feed the reputation ledger.
 
 ### What's verified on-chain?
 
@@ -345,11 +339,11 @@ These execute against deployed CC3 Testnet contracts. Synthetic/demo data is exp
 
 ### Agent reputation
 
-**675** — 20 repaid · 1 defaulted · 32+ loans
+**645** — 22 repaid · 3 defaulted · 26 loans
 
 ### Capital authority
 
-**$100** — earned → lost → re-earned
+**$25** — earned → lost → re-earned through on-chain outcomes
 
 ### Attestcoin
 
@@ -357,7 +351,7 @@ These execute against deployed CC3 Testnet contracts. Synthetic/demo data is exp
 
 ### Liquidity
 
-**~$9,740 available** in real ERC-20 custody (MockUSDC)
+**~$9,750 available** in real ERC-20 custody
 
 ### Proof-verified repayment
 
@@ -366,11 +360,13 @@ Real CC3 transaction that moved tokens + updated the score: [`0x22593af0…`](ht
 ### Reputation progression
 
 ```
-500 → 510 → 640 → 650 → 625 → 655 → 665 → 675 → 685
-$25 →  $25 →  $25 → $100 →  $25 → $100 → $100 → $100 → $100
+500 → 510 → 640 → 650 → 625 → 655 → 665 → 675
+$25 →  $25 →  $25 → $100 →  $25 → $100 → $100 → $100
 ```
 
 The agent earned, lost, and re-earned the right to manage capital — all through its own on-chain track record, no human intervention.
+
+> *State at the time of demo recording. The live contract state may differ — [verify on Blockscout](#verify-it-yourself).*
 
 ---
 
@@ -379,7 +375,7 @@ The agent earned, lost, and re-earned the right to manage capital — all throug
 You don't have to trust this README. The chain is the evidence.
 
 1. **Open the [live app](https://mira-credit-agent.vercel.app)** — connect the verified Sepolia wallet.
-2. **Check [AgentReputation](https://creditcoin-testnet.blockscout.com/address/0x39aeBc2c8890c42676CCE573F6570e48910a031F)** — score 685, 21 repaid, 1 defaulted.
+2. **Check [AgentReputation](https://creditcoin-testnet.blockscout.com/address/0x39aeBc2c8890c42676CCE573F6570e48910a031F)** — read the current `currentScore()`, `cumulativeRepaid()`, `cumulativeDefaulted()`.
 3. **Open the [Loan contract](https://creditcoin-testnet.blockscout.com/address/0x09DDD93e09a2A51212Ce64729dA9553C01484dE6)** — read `demoMode()` → confirm `false` (production locked).
 4. **Open the [production-mode lock tx](https://creditcoin-testnet.blockscout.com/tx/0xb38fd9233853e8da872951931eb5d3f6ff7a06db633c4f7da0a313a21369804a)** — the worker-trusted path is permanently closed.
 5. **Open the [proof-verified repayment tx](https://creditcoin-testnet.blockscout.com/tx/0x22593af0d902648480704e9db75e32ff3291f92d56e9ce91a68ebc641f0f127a)** — the contract called the BlockProver precompile.

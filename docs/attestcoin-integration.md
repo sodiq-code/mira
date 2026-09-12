@@ -96,22 +96,7 @@ The load-bearing property is that **a borrower cannot claim activity they did no
 
 ## Verified financial activity: stablecoin Transfers vs Aave Repay events
 
-A natural question is why MIRA underwrites against stablecoin `Transfer`
-events rather than Aave V3 `Repay` events, which are a more direct
-repayment-behavior signal. The answer has two parts: a deployment
-constraint and a cryptographic equivalence.
-
-### Deployment constraint
-
-Aave V3 is not officially deployed on Ethereum Sepolia. Aave governance
-lists mainnet, Polygon, Arbitrum, Optimism, Avalanche, Base, and BNB
-Chain as supported markets; Sepolia is a testnet that Aave does not
-operate a market on. Without a reliable Aave V3 pool on Sepolia, there
-are no `Repay` events for the Attestcoin read path to prove.
-
-### Cryptographic equivalence
-
-MIRA uses real Sepolia ERC-20 `Transfer` events — from native
+MIRA underwrites against real Sepolia ERC-20 `Transfer` events — from native
 USDC, USDT, DAI, and a MIRA-deployed MockUSDC test token — as the
 verified financial-activity signal. The load-bearing property is
 identical to what Aave `Repay` events would provide:
