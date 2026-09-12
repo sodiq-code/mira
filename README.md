@@ -367,7 +367,7 @@ $25 →  $25 →  $25 → $100 →  $25 → $100 → $100 → $100
 
 The agent earned, lost, and re-earned the right to manage capital — all through its own on-chain track record, no human intervention.
 
-> *State at the time of demo recording. The live contract state may differ — [verify on Blockscout](#verify-it-yourself).*
+> *State at the time of demo recording. [Verify the current state on Blockscout](#verify-it-yourself).*
 
 ---
 
