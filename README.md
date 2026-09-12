@@ -678,11 +678,6 @@ See [`.env.example`](./.env.example) for the full list. The key ones:
 | `MIRA_REAL_CREDIT_CHECK` | Set to `1` to enable real Attestcoin credit verification in `/api/credit/check` (calls `runCreditCheck`: Sepolia scan → proof → BlockProver `verifySingle`). Unset = preset/synthetic demo path. | No (demo default) |
 | `MIRA_REAL_CHECK_TIMEOUT_MS` | Hard timeout (ms) for the real credit-check path before falling back. Default 40000. | No |
 
-> **Role separation (security):** `WORKER_ADDRESS` (hot, server-side) and
-> `GOVERNANCE_ADDRESS` (cold, ideally a multisig) **must be different
-> addresses**. `contracts:deploy` refuses to run if they are missing or equal.
-> A single shared key means one compromise grants full protocol control.
-
 ---
 
 ## The feedback loop
