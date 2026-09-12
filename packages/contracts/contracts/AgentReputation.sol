@@ -62,6 +62,11 @@ contract AgentReputation {
         uint256 blockNumber
     );
     event AutoPaused(uint256 cumulativeDefaulted, uint256 blockNumber);
+    /// Emitted when the best-effort Policy.setPaused(true) call fails so
+    /// off-chain monitors can alert governance to pause manually. The
+    /// autoPaused flag is still set, but Policy.paused may be false —
+    /// governance should resolve the desync.
+    event PolicyPauseFailed(uint256 cumulativeDefaulted, uint256 blockNumber);
 
     // ─── Modifiers ─────────────────────────────────────────────────────
 
@@ -177,13 +182,19 @@ contract AgentReputation {
      * because the pause mechanism is broken.
      */
     function _tryPausePolicy() internal {
-        if (policyContract == address(0)) return;
+        if (policyContract == address(0)) {
+            emit PolicyPauseFailed(cumulativeDefaulted, block.number);
+            return;
+        }
         (bool ok, ) = policyContract.call(
             abi.encodeWithSignature("setPaused(bool)", true)
         );
-        // ok is intentionally ignored — the autoPaused flag is set
-        // regardless, so the agent's authority drops to $0 via the tier
-        // ladder even if the pause call fails.
-        ok;
+        // If the pause call failed, surface it so off-chain monitors can
+        // alert governance to pause manually. The autoPaused flag is set
+        // regardless (the agent's tier cap still drops via the score),
+        // but Policy.paused may be false — a desync governance must resolve.
+        if (!ok) {
+            emit PolicyPauseFailed(cumulativeDefaulted, block.number);
+        }
     }
 }

@@ -34,6 +34,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { VerifiedBadge } from '@/components/mira/ui/verified-badge';
 import { AuditTrail, type DecisionReceipt } from '@/components/mira/ui/audit-trail';
+import { ClampCallout } from '@/components/mira/ui/clamp-callout';
+import { formatUsd } from '@/lib/mira/format';
 import { useMiraStore } from '@/lib/mira/store-client';
 import type { LoanDecision, VerifiedFactors } from '@mira/shared';
 
@@ -104,10 +106,20 @@ export function Decision() {
           </div>
 
           <CardContent className="space-y-6 p-6">
+            {/* Amount-clamp callout — shown when MIRA approved less than requested */}
+            {!isDecline && decision.wasClamped && decision.requestedAmount && (
+              <ClampCallout
+                requestedAmount={decision.requestedAmount}
+                approvedAmount={decision.approvedAmount}
+                effectiveCap={decision.effectiveCap}
+                agentScore={decision.agentReputation.currentScore}
+              />
+            )}
+
             {/* Terms */}
             {!isDecline && (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <Term label="Approved" value={`$${decision.approvedAmount}`} />
+                <Term label="Approved" value={formatUsd(decision.approvedAmount)} />
                 <Term label="Rate" value={`${decision.interestRateApr.toFixed(1)}%`} />
                 <Term label="Confidence" value={`${decision.confidence}%`} />
                 <Term

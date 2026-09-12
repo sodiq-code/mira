@@ -199,7 +199,7 @@ Most integrations use Attestcoin to **read** another chain. MIRA also uses the p
 | Choose an invalid term | `Policy` allowed-terms check |
 | Bypass liquidity constraints | `LiquidityPool.available()` check |
 | Submit an expired decision | `Policy` expiry TTL check |
-| Replay the same decision | `Loan.borrowerNonces` replay protection |
+| Re-submit the same origination | Per-borrower nonce (`borrowerNonces`) — each loan gets a unique sequence position |
 | Fabricate verified repayment evidence | `Loan.markRepaidWithProof` → BlockProver on-chain |
 | Call the worker-trusted repayment path | `demoMode` flag locked to production mode |
 
@@ -228,8 +228,8 @@ BlockProver.verify()
 
 The deployed Loan contract is **locked to production mode** — `demoMode()` returns `false`, and the worker-trusted `markRepaid()` path permanently reverts with `"rejected in production mode"` even when called by the authorized worker.
 
-- **Production-mode lock tx:** [`0x78d0f9eb…`](https://creditcoin-testnet.blockscout.com/tx/0x78d0f9ebd85b353a60c72779cab467b64fc36a65e8cbe5c2054309b32b9accb9)
-- **Proof-verified repayment tx:** [`0xff58b151…`](https://creditcoin-testnet.blockscout.com/tx/0xff58b151530809facae16e70daf6029b8701f918a10d0df8bd936fd6f0eee45a) — the contract verified the proof on-chain, moved real tokens, and updated the score 665 → 675 (+10).
+- **Production-mode lock tx:** [`0x1738901e…`](https://creditcoin-testnet.blockscout.com/tx/0x1738901e1e58894683d217eaaa3bf3957f7a6c1dd6e630b9511dd1605ddf990d)
+- **Proof-verified repayment tx:** [`0x428e450e…`](https://creditcoin-testnet.blockscout.com/tx/0x428e450e24b987be33266443fa4109c53898fa9a0d1f0749c6f9c53d173a5daf) — the contract verified the proof on-chain, moved real tokens, and updated the score 675 → 685 (+10).
 - **Sepolia transaction proven:** [`0xedd21116…`](https://sepolia.etherscan.io/tx/0xedd21116c18c96bff741f6545442b92ccb4f9fff42cb37df3e1aa22c1b10733c)
 
 ### Origination vs repayment: two trust models, one reason
@@ -255,11 +255,11 @@ REPAYMENT (contract-verified proof)
   invalid proof → REVERT
 ```
 
-**Why the difference?** Each Attestcoin proof is a large Merkle + continuity struct. Verifying 5 proofs on-chain during origination would cost ~5× the gas of a single repayment proof — impractical for a ~15-second block. Instead, the worker pre-validates off-chain (the same gasless `verifyReadonly` call the BlockProver precompile runs), and the contract enforces every bound that matters for capital safety: tier caps, rate bounds, term, liquidity, expiry, nonce, and evidence-hash format. The evidence hashes are stored on-chain so any party can audit them post-hoc.
+**Why the difference?** Each Attestcoin proof is a large Merkle + continuity struct. Verifying 5 proofs on-chain during origination would cost ~5× the gas of a single repayment proof — impractical for a ~15-second block. Instead, the worker pre-validates off-chain (the same gasless `verifyReadonly` call the BlockProver precompile runs), and the contract enforces every bound that matters for capital safety: tier caps, rate bounds, term, liquidity, expiry TTL, nonce ordering, and evidence-hash format. The evidence hashes are stored on-chain so any party can audit them post-hoc.
 
 **What is worker-verified:** the Attestcoin inclusion proofs (that the borrower's Sepolia transactions are real and attested).
 
-**What is contract-enforced:** the 10 Policy checks + nonce replay protection + production-mode lock. A compromised worker key cannot exceed the agent's tier cap, set an invalid rate, bypass liquidity, replay a decision, or fabricate a repayment.
+**What is contract-enforced:** the 10 Policy checks + per-borrower nonce ordering + production-mode lock. A compromised worker key cannot exceed the agent's tier cap, set an invalid rate, bypass liquidity, submit a stale decision, or fabricate a repayment.
 
 **Why the reputation loop stays closed:** the agent's score only increases via `recordRepaid`, which in production mode is called exclusively from `markRepaidWithProof` — the path that calls `BlockProver.verify` on-chain. The worker-trusted `markRepaid` path is permanently locked (`demoMode == false`). So even if a compromised worker fabricates origination evidence, it can only approve a bounded-risk loan within all Policy constraints — and that loan must eventually be repaid via a real, attested Sepolia transaction verified by the BlockProver on-chain to improve the agent's score. If the loan defaults, the score goes down. The worker cannot inflate the agent's reputation without real on-chain proof.
 
@@ -355,13 +355,13 @@ These execute against deployed CC3 Testnet contracts. Synthetic/demo data is exp
 
 ### Proof-verified repayment
 
-Real CC3 transaction that moved tokens + updated the score: [`0xff58b151…`](https://creditcoin-testnet.blockscout.com/tx/0xff58b151530809facae16e70daf6029b8701f918a10d0df8bd936fd6f0eee45a)
+Real CC3 transaction that moved tokens + updated the score: [`0x428e450e…`](https://creditcoin-testnet.blockscout.com/tx/0x428e450e24b987be33266443fa4109c53898fa9a0d1f0749c6f9c53d173a5daf)
 
 ### Reputation progression
 
 ```
-500 → 510 → 640 → 650 → 625 → 655 → 665 → 675
-$25 →  $25 →  $25 → $100 →  $25 → $100 → $100 → $100
+500 → 510 → 640 → 650 → 625 → 655 → 665 → 675 → 685
+$25 →  $25 →  $25 → $100 →  $25 → $100 → $100 → $100 → $100
 ```
 
 The agent earned, lost, and re-earned the right to manage capital — all through its own on-chain track record, no human intervention.
@@ -373,10 +373,10 @@ The agent earned, lost, and re-earned the right to manage capital — all throug
 You don't have to trust this README. The chain is the evidence.
 
 1. **Open the [live app](https://mira-credit-agent.vercel.app)** — connect the verified Sepolia wallet.
-2. **Check [AgentReputation](https://creditcoin-testnet.blockscout.com/address/0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46)** — score 675, 20 repaid, 1 defaulted.
-3. **Open the [Loan contract](https://creditcoin-testnet.blockscout.com/address/0x63493c2C637db81355546C0e8E67FbF6878aE279)** — read `demoMode()` → confirm `false` (production locked).
-4. **Open the [production-mode lock tx](https://creditcoin-testnet.blockscout.com/tx/0x78d0f9ebd85b353a60c72779cab467b64fc36a65e8cbe5c2054309b32b9accb9)** — the worker-trusted path is permanently closed.
-5. **Open the [proof-verified repayment tx](https://creditcoin-testnet.blockscout.com/tx/0xff58b151530809facae16e70daf6029b8701f918a10d0df8bd936fd6f0eee45a)** — the contract called the BlockProver precompile.
+2. **Check [AgentReputation](https://creditcoin-testnet.blockscout.com/address/0x09328398FC0D4a78b22fC6470412Ca13ac5A21f0)** — score 685, 21 repaid, 1 defaulted.
+3. **Open the [Loan contract](https://creditcoin-testnet.blockscout.com/address/0xb66E51b53E89c4DF8fFF3AEB9888108B3D6B01b3)** — read `demoMode()` → confirm `false` (production locked).
+4. **Open the [production-mode lock tx](https://creditcoin-testnet.blockscout.com/tx/0x1738901e1e58894683d217eaaa3bf3957f7a6c1dd6e630b9511dd1605ddf990d)** — the worker-trusted path is permanently closed.
+5. **Open the [proof-verified repayment tx](https://creditcoin-testnet.blockscout.com/tx/0x428e450e24b987be33266443fa4109c53898fa9a0d1f0749c6f9c53d173a5daf)** — the contract called the BlockProver precompile.
 6. **Open the [proven Sepolia transaction](https://sepolia.etherscan.io/tx/0xedd21116c18c96bff741f6545442b92ccb4f9fff42cb37df3e1aa22c1b10733c)** — the real Ethereum transaction that was proven.
 7. **Run an [attack](https://mira-credit-agent.vercel.app)** — submit a fabricated proof and see the on-chain revert reason.
 
@@ -386,12 +386,12 @@ You don't have to trust this README. The chain is the evidence.
 
 | Contract | Address |
 |---|---|
-| MockUSDC (ERC-20) | [`0x4447e0C1845b03212a8e9A1d02AE9E0092056d1f`](https://creditcoin-testnet.blockscout.com/address/0x4447e0C1845b03212a8e9A1d02AE9E0092056d1f) |
-| Policy | [`0xE4fAE890E6d151D3f88c9A651020fa5B4F6d3CaD`](https://creditcoin-testnet.blockscout.com/address/0xE4fAE890E6d151D3f88c9A651020fa5B4F6d3CaD) |
-| AgentReputation | [`0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46`](https://creditcoin-testnet.blockscout.com/address/0x3F37D51A26e44B62455Fc6fA027c400aF5Be9f46) |
-| BorrowerReputation | [`0x18919cc60fC52d9077599A306C72b7B48423ed0C`](https://creditcoin-testnet.blockscout.com/address/0x18919cc60fC52d9077599A306C72b7B48423ed0C) |
-| LiquidityPool | [`0xF089D710474AA74199d98586EbFD2be3a7c6502C`](https://creditcoin-testnet.blockscout.com/address/0xF089D710474AA74199d98586EbFD2be3a7c6502C) |
-| Loan | [`0x63493c2C637db81355546C0e8E67FbF6878aE279`](https://creditcoin-testnet.blockscout.com/address/0x63493c2C637db81355546C0e8E67FbF6878aE279) |
+| MockUSDC (ERC-20) | [`0x99305c7AdB03A1A7E753d328b3724C9b0e0aD845`](https://creditcoin-testnet.blockscout.com/address/0x99305c7AdB03A1A7E753d328b3724C9b0e0aD845) |
+| Policy | [`0xDae48F95976ED12903989b66897197094e4aba8e`](https://creditcoin-testnet.blockscout.com/address/0xDae48F95976ED12903989b66897197094e4aba8e) |
+| AgentReputation | [`0x09328398FC0D4a78b22fC6470412Ca13ac5A21f0`](https://creditcoin-testnet.blockscout.com/address/0x09328398FC0D4a78b22fC6470412Ca13ac5A21f0) |
+| BorrowerReputation | [`0x90B19D3dF8B8c9cC8d493954C02448d35CBedC84`](https://creditcoin-testnet.blockscout.com/address/0x90B19D3dF8B8c9cC8d493954C02448d35CBedC84) |
+| LiquidityPool | [`0xf0F43bc997eC44e26492C0c3E8B2e05e22f205EB`](https://creditcoin-testnet.blockscout.com/address/0xf0F43bc997eC44e26492C0c3E8B2e05e22f205EB) |
+| Loan | [`0xb66E51b53E89c4DF8fFF3AEB9888108B3D6B01b3`](https://creditcoin-testnet.blockscout.com/address/0xb66E51b53E89c4DF8fFF3AEB9888108B3D6B01b3) |
 
 Precompiles:
 
@@ -469,8 +469,8 @@ The full integration write-up lives in [`docs/attestcoin-integration.md`](./docs
 | Fake borrower history | Attestcoin proof (BlockProver precompile) |
 | Fake repayment | Contract-side BlockProver verification (`markRepaidWithProof`) |
 | LLM exceeds risk limit | On-chain Policy (10 checks) |
-| Replay decision | Borrower nonce (`borrowerNonces`) |
-| Stale decision | Expiry TTL (20-block window) |
+| Stale decision | Decision expiry TTL (20-block window) |
+| Duplicate origination | Per-borrower nonce ordering (`borrowerNonces`) |
 | Agent gets too aggressive | Capital authority tiers (agent + borrower) |
 | Repeated defaults | Automatic pause (5 defaults → `Policy.setPaused`) |
 | Worker key compromise | Production-mode lock (`demoMode == false`) |
@@ -528,7 +528,7 @@ On mainnet, the same code path would prove Aave V3 `Repay` events once Creditcoi
 - Atomic rollback on insufficient liquidity (no state change, no token move)
 
 **Policy validation (10 on-chain checks)**
-- Paused, amount, agent tier, borrower tier, rate bounds, term, liquidity, expiry TTL, evidence-hash format, nonce replay
+- Paused, amount > 0, global cap, agent tier, borrower tier, rate bounds, term, liquidity, expiry TTL, evidence-hash format
 
 **Loan lifecycle (real token transfers)**
 - Originate, repay, default — with real ERC-20 movement
@@ -546,7 +546,7 @@ On mainnet, the same code path would prove Aave V3 `Repay` events once Creditcoi
 - Agent tier ladder + borrower tier ladder
 - Effective cap = min(agent tier, borrower tier)
 - Auto-pause on 5 defaults
-- Borrower nonce increments per origination (replay protection)
+- Borrower nonce increments per origination (ordering — each loan gets a unique sequence position)
 
 Run them:
 
@@ -663,12 +663,22 @@ See [`.env.example`](./.env.example) for the full list. The key ones:
 | `CREDITCOIN_RPC_URL` | Creditcoin CC3 Testnet JSON-RPC endpoint | No (public default) |
 | `SEPOLIA_RPC_URL` | Ethereum Sepolia JSON-RPC endpoint | No (public default) |
 | `CREDITCOIN_PROOF_BUILDER_URL` | Gluwa proof builder service base URL | No (public default) |
-| `CREDITCOIN_PRIVATE_KEY` | Funded CC3 wallet, for on-chain operations | Yes (enables real loans) |
+| `CREDITCOIN_PRIVATE_KEY` | Funded CC3 wallet (governance/deployer key), for on-chain operations | Yes (enables real loans) |
+| `WORKER_ADDRESS` | Hot operational key that originates/repays loans. **Must differ from `GOVERNANCE_ADDRESS`.** Required by `contracts:deploy`. | Yes (deployment) |
+| `GOVERNANCE_ADDRESS` | Cold/multisig key that owns bounds, pause, force-default, worker rotation. **Must differ from `WORKER_ADDRESS`.** | Yes (deployment) |
 | `TOKEN_ADDRESS` | MockUSDC contract address on CC3 | Yes (real capital) |
 | `POLICY_ADDRESS` | Policy contract address | Yes (on-chain validation) |
 | `LOAN_ADDRESS` | Loan contract address | Yes (real origination) |
 | `AGENT_REPUTATION_ADDRESS` | AgentReputation contract address | Yes (on-chain reputation) |
+| `BORROWER_REPUTATION_ADDRESS` | BorrowerReputation contract address | Yes (real borrower rep reads) |
 | `LIQUIDITY_POOL_ADDRESS` | LiquidityPool contract address | Yes (real ERC-20 custody) |
+| `MIRA_REAL_CREDIT_CHECK` | Set to `1` to enable real Attestcoin credit verification in `/api/credit/check` (calls `runCreditCheck`: Sepolia scan → proof → BlockProver `verifySingle`). Unset = preset/synthetic demo path. | No (demo default) |
+| `MIRA_REAL_CHECK_TIMEOUT_MS` | Hard timeout (ms) for the real credit-check path before falling back. Default 40000. | No |
+
+> **Role separation (security):** `WORKER_ADDRESS` (hot, server-side) and
+> `GOVERNANCE_ADDRESS` (cold, ideally a multisig) **must be different
+> addresses**. `contracts:deploy` refuses to run if they are missing or equal.
+> A single shared key means one compromise grants full protocol control.
 
 ---
 

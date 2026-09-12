@@ -81,12 +81,28 @@ contract Loan {
     mapping(uint256 => LoanData) private loans;
     uint256 public nextLoanId;
 
-    // ─── Nonce replay protection ──────────────────────────────────────
+    // ─── Borrower nonce (origination ordering) ────────────────────────
 
-    /// Each borrower has a monotonically increasing nonce. A decision
-    /// must carry the borrower's current nonce, and origination consumes
-    /// it — so the same decision cannot be submitted twice.
+    /// Each borrower has a monotonically increasing nonce, consumed on
+    /// every origination. This guarantees one origination per nonce step
+    /// and gives each loan a unique sequence position. Stale-decision
+    /// protection is enforced separately by the Decision.expiry TTL
+    /// (see Policy.validateDecision) — a decision whose expiresAtBlock
+    /// has passed is rejected even if its nonce is current.
     mapping(address => uint256) public borrowerNonces;
+
+    // ─── Force-default timelock ───────────────────────────────────────
+
+    /// Configurable delay (seconds) before a governance force-default may
+    /// execute. Defaults to 0 (immediate) so the demo's "Trigger default"
+    /// button works without a wait. Governance can set this > 0 in
+    /// production to give borrowers a window to react before a forced
+    /// default lands. See scheduleForceDefault + forceMarkDefaulted.
+    uint256 public forceDefaultDelay;
+
+    /// loanId => timestamp at which a force-default may execute
+    /// (0 = not scheduled). Only consulted when forceDefaultDelay > 0.
+    mapping(uint256 => uint256) public forceDefaultSchedule;
 
     // ─── Events ────────────────────────────────────────────────────────
 
@@ -102,6 +118,9 @@ contract Loan {
     event LoanRepaid(uint256 indexed loanId, uint256 repaidBlock, bytes32 repaymentProofHash);
     event LoanDefaulted(uint256 indexed loanId, uint256 defaultBlock, bytes32 writabilityActionTxHash);
     event ProductionModeLocked(uint256 blockNumber);
+    event WorkerRotated(address indexed oldWorker, address indexed newWorker);
+    event ForceDefaultScheduled(uint256 indexed loanId, uint256 executableAt, address indexed scheduledBy);
+    event ForceDefaultDelaySet(uint256 delaySeconds, address indexed updatedBy);
 
     // ─── Modifiers ─────────────────────────────────────────────────────
 
@@ -134,8 +153,39 @@ contract Loan {
     // ─── Configuration ─────────────────────────────────────────────────
 
     function setWorker(address _worker) external {
-        require(msg.sender == worker, "Loan: not worker");
+        // Governance-only: a compromised worker key must NOT be able to
+        // rotate the worker to an attacker-controlled address (that would
+        // let a hot-key compromise self-perpetuate). Only governance can
+        // rotate the worker, so a worker-key compromise is recoverable
+        // without granting protocol-wide control.
+        require(msg.sender == governance, "Loan: not governance");
+        require(_worker != address(0), "Loan: zero worker");
+        emit WorkerRotated(worker, _worker);
         worker = _worker;
+    }
+
+    /**
+     * Set the delay (seconds) before a governance force-default can
+     * execute. 0 = immediate (demo default); >0 requires
+     * scheduleForceDefault first. Governance-only.
+     */
+    function setForceDefaultDelay(uint256 _delaySeconds) external {
+        require(msg.sender == governance, "Loan: not governance");
+        forceDefaultDelay = _delaySeconds;
+        emit ForceDefaultDelaySet(_delaySeconds, msg.sender);
+    }
+
+    /**
+     * Schedule a force-default for a loan. Required before
+     * forceMarkDefaulted when forceDefaultDelay > 0. Governance-only.
+     * Emits ForceDefaultScheduled with the executable-at timestamp.
+     */
+    function scheduleForceDefault(uint256 loanId) external {
+        require(msg.sender == governance, "Loan: not governance");
+        require(loans[loanId].exists, "Loan: loan does not exist");
+        require(loans[loanId].status == LoanStatus.Originated, "Loan: not originated");
+        forceDefaultSchedule[loanId] = block.timestamp + forceDefaultDelay;
+        emit ForceDefaultScheduled(loanId, forceDefaultSchedule[loanId], msg.sender);
     }
 
     /**
@@ -384,6 +434,16 @@ contract Loan {
         LoanData storage loan = loans[loanId];
         require(loan.exists, "Loan: loan does not exist");
         require(loan.status == LoanStatus.Originated, "Loan: not originated");
+
+        // Timelock: when forceDefaultDelay > 0, governance must have called
+        // scheduleForceDefault first and the delay must have elapsed. This
+        // gives borrowers a window to react before a forced default lands.
+        // When forceDefaultDelay == 0 (demo default), execution is immediate.
+        if (forceDefaultDelay > 0) {
+            require(forceDefaultSchedule[loanId] != 0, "Loan: force default not scheduled");
+            require(block.timestamp >= forceDefaultSchedule[loanId], "Loan: timelock not elapsed");
+            delete forceDefaultSchedule[loanId];
+        }
 
         loan.status = LoanStatus.Defaulted;
         loan.defaultBlock = block.number;

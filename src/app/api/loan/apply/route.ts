@@ -113,6 +113,10 @@ export async function POST(request: Request) {
             cumulativeDefaulted: demoRep.cumulativeDefaulted,
             currentScore: demoRep.currentScore,
           },
+      // Declines never clamp — surface the requested amount so the UI can
+      // still show "you asked for $X, MIRA declined".
+      requestedAmount,
+      wasClamped: false,
     };
     return NextResponse.json(response, {
       headers: { 'Cache-Control': 'no-store' },
@@ -123,6 +127,8 @@ export async function POST(request: Request) {
   let loanId: string;
   let originTxHash: string;
   let actualAmountUsd = decision.approvedAmount; // may be clamped below
+  let effectiveCap: number | undefined;
+  let wasClamped = decision.decision === 'approve_reduced';
 
   if (LOAN_ADDRESS) {
     // Real on-chain origination — moves real ERC-20 tokens.
@@ -138,7 +144,11 @@ export async function POST(request: Request) {
       const policyContract = new Contract(process.env.POLICY_ADDRESS!, policyAbi, provider);
       const capCents = Number(await policyContract.effectiveBorrowerCap(walletAddress));
       const capUsd = Math.floor(capCents / 100); // cents → USD (floor)
-      actualAmountUsd = Math.min(decision.approvedAmount, capUsd);
+      effectiveCap = capUsd;
+      if (decision.approvedAmount > capUsd) {
+        actualAmountUsd = capUsd;
+        wasClamped = true;
+      }
 
       const result = await originateOnChainLoan(
         walletAddress,
@@ -184,6 +194,12 @@ export async function POST(request: Request) {
     originTxHash = loan.originTxHash;
   }
 
+  // If the LLM reduced the amount below what the borrower asked for, mark
+  // the response as clamped so the decision screen can explain it.
+  if (actualAmountUsd < requestedAmount) {
+    wasClamped = true;
+  }
+
   // Read the updated agent reputation.
   const onChainRep = LOAN_ADDRESS
     ? await readAgentReputation().catch(() => null)
@@ -210,6 +226,9 @@ export async function POST(request: Request) {
       cumulativeDefaulted: rep.cumulativeDefaulted,
       currentScore: rep.currentScore,
     },
+    requestedAmount,
+    effectiveCap,
+    wasClamped,
   };
 
   return NextResponse.json(response, {

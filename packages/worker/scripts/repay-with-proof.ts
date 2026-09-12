@@ -110,7 +110,7 @@ async function main(): Promise<void> {
   const attestationHash = ethers.id('attestcoin-verified-sepolia-activity');
 
   console.log('\n1. Originating loan...');
-  const origData = loan.interface.encodeFunctionData('originate', [borrower, amount, rate, term, reasoningHash, attestationHash]);
+  const origData = loan.interface.encodeFunctionData('originate', [borrower, amount, rate, term, reasoningHash, attestationHash, []]);
   const { receipt: origReceipt } = await sendTx(wallet, loanAddr, origData, 2_000_000);
   const origEvent = origReceipt.logs.map((l) => { try { return loan.interface.parseLog(l); } catch { return null; } }).find((l) => l?.name === 'LoanOriginated');
   if (!origEvent) throw new Error('LoanOriginated event not found');

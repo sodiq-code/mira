@@ -39,7 +39,7 @@ EVM contracts deployed to Creditcoin CC3 Testnet:
 | Contract | Role |
 |---|---|
 | `Policy` | Singleton bounds: max loan amount, rate range (bps), allowed terms, agent-authority tier ladder, borrower-tier ladder, expiry TTL, evidence-hash format. Governance-gated; the worker cannot change it. |
-| `Loan` | Singleton. Owns the `Pending → Originated → (Repaid \| Defaulted)` state machine for every loan, keyed by integer ID. Enforces nonce replay protection. Has a one-way `demoMode` flag: when locked to production mode, only `markRepaidWithProof` (which calls the BlockProver precompile) is accepted. Has `forceMarkDefaulted` (governance-only) for demo defaults that bypass the due-block check. |
+| `Loan` | Singleton. Owns the `Pending → Originated → (Repaid \| Defaulted)` state machine for every loan, keyed by integer ID. Enforces per-borrower nonce ordering (each loan gets a unique sequence position). Has a one-way `demoMode` flag: when locked to production mode, only `markRepaidWithProof` (which calls the BlockProver precompile) is accepted. Has `forceMarkDefaulted` (governance-only) for demo defaults that bypass the due-block check. |
 | `AgentReputation` | Singleton append-mostly ledger of the agent's cumulative loans/repaid/defaulted and a derived score. Auto-pauses Policy on 5 defaults. |
 | `BorrowerReputation` | Per-borrower repaid/defaulted counts; feeds the borrower-tier ladder. |
 | `LiquidityPool` | Singleton; holds real ERC-20 tokens (MockUSDC on testnet). Origination moves tokens to the borrower; repayment pulls them back. |
@@ -87,4 +87,4 @@ The worker is built to demo safely. Every external dependency has a tested fallb
 9. **Expiry TTL** — the decision must not be stale (20-block window).
 10. **Evidence-hash format** — the decision must carry a non-zero evidence hash.
 
-Plus nonce replay protection in `Loan.originate` — the same decision cannot be submitted twice.
+Plus per-borrower nonce ordering in `Loan.originate` — each origination consumes a unique nonce, giving every loan a distinct sequence position.

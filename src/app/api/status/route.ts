@@ -40,15 +40,12 @@ const VERIFIED_TX_HASH = '0xa685eb0eb5fdcbeaae86655acaf8339d3662ecaa31933e31918d
  */
 const SEPOLIA_TX_PROVEN = '0xedd21116c18c96bff741f6545442b92ccb4f9fff42cb37df3e1aa22c1b10733c';
 
-/**
- * The `TransactionVerified` event signature topic, emitted by the
- * BlockProver precompile:
- *   event TransactionVerified(uint256 indexed chainKey, uint256 indexed height, uint256 indexed txIndex)
- *
- * keccak256("TransactionVerified(uint256,uint256,uint256)")
- */
-const TRANSACTION_VERIFIED_TOPIC =
-  '0x4f77ec8e57d9b7f7c4a3b7c0e0b9b6c2e0b9b6c2e0b9b6c2e0b9b6c2e0b9b6c2';
+// NOTE: a `TRANSACTION_VERIFIED_TOPIC` constant previously lived here but was
+// (a) unused — this route fetches the tx receipt by hash, not by log topic —
+// and (b) not the real keccak256("TransactionVerified(uint256,uint256,uint256)"),
+// which made it misleading. It has been removed. If log-based filtering is
+// needed later, compute the topic at runtime with
+// `ethers.id("TransactionVerified(uint256,uint256,uint256)")`.
 
 export async function GET() {
   try {

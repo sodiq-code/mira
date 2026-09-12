@@ -85,8 +85,13 @@ async function main(): Promise<void> {
     const policy = await deploy('Policy', [worker.address, worker.address, 100000n, 500n, 2500n, [7n, 30n, 90n]]);
     const agentRep = await deploy('AgentReputation', [worker.address]);
     const borrowerRep = await deploy('BorrowerReputation', [worker.address]);
-    const loan = await deploy('Loan', [worker.address, await policy.getAddress(), await agentRep.getAddress(), await borrowerRep.getAddress()]);
-    const defaultMarker = await deploy('DefaultMarker', []);
+    // NOTE: This standalone demo script predates the 6-arg Loan constructor
+    // (worker, governance, policy, agentRep, borrowerRep, pool) and the real-
+    // capital LiquidityPool wiring. It is retained for reference; the canonical
+    // deploy path is packages/contracts/scripts/deploy.ts. DefaultMarker now
+    // requires an authorized-caller constructor arg (the relayer address).
+    const loan = await deploy('Loan', [worker.address, worker.address, await policy.getAddress(), await agentRep.getAddress(), await borrowerRep.getAddress(), worker.address]);
+    const defaultMarker = await deploy('DefaultMarker', [worker.address]);
 
     // Wire reputation contracts
     for (const [contract, method, arg] of [

@@ -19,11 +19,13 @@ import {
   ExternalLink,
   RefreshCw,
   ArrowLeft,
+  MousePointerClick,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { VerifiedBadge } from '@/components/mira/ui/verified-badge';
 import { RadialGauge, RepaymentRateRing } from '@/components/mira/ui/radial-gauge';
 import { Sparkline } from '@/components/mira/ui/sparkline';
@@ -179,12 +181,33 @@ export function AgentReputationDashboard() {
 
             <Card>
               <CardContent className="flex items-center gap-5 p-5 sm:p-6">
-                <RepaymentRateRing
-                  repaid={reputation.cumulativeRepaid}
-                  total={reputation.cumulativeLoans}
-                  size={84}
-                  stroke={8}
-                />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        document
+                          .getElementById('activity-trend')
+                          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
+                      className="cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
+                      aria-label="Repayment rate — jump to the activity trend breakdown"
+                    >
+                      <RepaymentRateRing
+                        repaid={reputation.cumulativeRepaid}
+                        total={reputation.cumulativeLoans}
+                        size={84}
+                        stroke={8}
+                      />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <span className="flex items-center gap-1">
+                      <MousePointerClick className="h-3 w-3" />
+                      Click to drill down to the activity trend
+                    </span>
+                  </TooltipContent>
+                </Tooltip>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-emerald-600" />
@@ -226,9 +249,16 @@ export function AgentReputationDashboard() {
                   </p>
                   <div className="mt-3 flex items-center gap-2 text-xs">
                     {(reputation as any).autoPaused ? (
-                      <Badge variant="outline" className="border-destructive/40 text-destructive">
-                        Auto-paused
-                      </Badge>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className="border-destructive/40 text-destructive">
+                            Auto-paused
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          Agent paused after 5 defaults. Governance can unpause via Policy.setPaused(false).
+                        </TooltipContent>
+                      </Tooltip>
                     ) : (
                       <Badge variant="outline" className="border-emerald-500/40 text-emerald-600">
                         Active
@@ -312,7 +342,7 @@ export function AgentReputationDashboard() {
           </div>
 
           {/* Activity trend — a real chart (not just a sparkline) */}
-          <Card className="mt-6">
+          <Card id="activity-trend" className="mt-6">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div>
@@ -358,8 +388,23 @@ export function AgentReputationDashboard() {
             </CardContent>
           </Card>
 
-          {/* Recent loans — sortable + filterable table */}
-          <ReputationLoansTable loans={reputation.recentLoans} />
+          {/* Recent loans — sortable + filterable table. Pass the cumulative
+              platform-wide counts so the filter pills agree with the summary
+              cards above (rather than only counting the recent-10 window). */}
+          <ReputationLoansTable
+            loans={reputation.recentLoans}
+            summaryCounts={{
+              all: reputation.cumulativeLoans,
+              Originated: Math.max(
+                0,
+                reputation.cumulativeLoans -
+                  reputation.cumulativeRepaid -
+                  reputation.cumulativeDefaulted,
+              ),
+              Repaid: reputation.cumulativeRepaid,
+              Defaulted: reputation.cumulativeDefaulted,
+            }}
+          />
 
           <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Button variant="ghost" onClick={() => setView('landing')}>

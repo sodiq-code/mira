@@ -17,13 +17,13 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   ShieldX,
+  ShieldCheck,
   Skull,
   FileX,
   UserX,
   Clock,
   Droplet,
   Loader2,
-  CheckCircle2,
   XCircle,
   ArrowLeft,
   Fingerprint,
@@ -102,6 +102,11 @@ interface AttackResponse {
   reverted: boolean;
   reason: string;
   details?: Record<string, unknown>;
+  /** Optional structured rejection flag — present when the route returned
+   * a clean rejection (e.g. fabricated-proof) rather than a raw HTTP error. */
+  rejected?: boolean;
+  /** Optional technical detail for auditors (raw revert message, etc.). */
+  technical?: string;
 }
 
 export function AttackMIRA() {
@@ -117,7 +122,14 @@ export function AttackMIRA() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ attack: id }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // The route returns a structured rejection (200 with reverted:true)
+      // for expected on-chain reverts. A non-OK status means something
+      // unexpected failed (RPC down, etc.) — surface the server's error
+      // message if present rather than a bare "HTTP 500".
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({} as { error?: string }));
+        throw new Error(errBody.error ?? `Attack failed (HTTP ${res.status})`);
+      }
       const data: AttackResponse = await res.json();
       setResults((prev) => ({ ...prev, [id]: data }));
     } catch (err) {
@@ -173,7 +185,7 @@ export function AttackMIRA() {
             >
               <Card className={cn(
                 'h-full transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md',
-                result?.reverted && 'border-emerald-500/30',
+                result?.reverted && 'border-blue-500/30',
                 result && !result.reverted && 'border-destructive/40',
               )}>
                 <CardHeader className="pb-3">
@@ -208,26 +220,32 @@ export function AttackMIRA() {
                       className={cn(
                         'rounded-lg border p-3',
                         result.reverted
-                          ? 'border-emerald-500/30 bg-emerald-500/[0.04]'
+                          ? 'border-blue-500/30 bg-blue-500/[0.04]'
                           : 'border-destructive/30 bg-destructive/[0.04]',
                       )}
                     >
                       <div className="flex items-center gap-2">
                         {result.reverted ? (
-                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                          <ShieldCheck className="h-4 w-4 text-blue-600" />
                         ) : (
                           <XCircle className="h-4 w-4 text-destructive" />
                         )}
                         <span className={cn(
                           'text-xs font-semibold',
-                          result.reverted ? 'text-emerald-600' : 'text-destructive',
+                          result.reverted ? 'text-blue-600' : 'text-destructive',
                         )}>
-                          {result.reverted ? 'REJECTED' : 'PASSED (unexpected!)'}
+                          {result.reverted ? 'DEFENSE PASSED' : 'PASSED (unexpected!)'}
                         </span>
                       </div>
                       <p className="mt-2 text-xs text-muted-foreground">
                         <span className="font-medium text-foreground">Reason:</span> {result.reason}
                       </p>
+                      {result.technical && (
+                        <p className="mt-1 text-[11px] font-mono text-muted-foreground/80">
+                          <span className="font-medium text-muted-foreground">Technical:</span>{' '}
+                          {result.technical}
+                        </p>
+                      )}
                       {result.details && Object.keys(result.details).length > 0 && (
                         <div className="mt-2 space-y-1 border-t border-border/40 pt-2">
                           {Object.entries(result.details).map(([k, v]) => (

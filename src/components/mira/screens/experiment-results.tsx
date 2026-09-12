@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useMiraStore } from '@/lib/mira/store-client';
+import { formatUsd } from '@/lib/mira/format';
 import { cn } from '@/lib/utils';
 
 interface DecisionRow {
@@ -134,9 +135,9 @@ export function ExperimentResults() {
                           <td className={cn('py-3 pr-4 text-right font-mono', r.estimatedDefaultRate > 15 ? 'text-destructive' : 'text-emerald-600')}>
                             {r.estimatedDefaultRate.toFixed(1)}%
                           </td>
-                          <td className="py-3 pr-4 text-right font-mono">${r.totalApproved}</td>
+                          <td className="py-3 pr-4 text-right font-mono">{formatUsd(r.totalApproved)}</td>
                           <td className="py-3 text-right font-mono font-semibold">
-                            ${r.capitalEfficiency.toFixed(0)}
+                            {formatUsd(r.capitalEfficiency)}
                           </td>
                         </tr>
                       ))}
@@ -186,7 +187,7 @@ export function ExperimentResults() {
                               <td key={r.strategy} className="py-2 pr-3 text-center">
                                 {approved ? (
                                   <span className="font-mono text-emerald-600">
-                                    ${d.amount} @ {d.apr}%
+                                    {formatUsd(d.amount)} @ {d.apr}%
                                   </span>
                                 ) : (
                                   <span className="text-destructive">Decline</span>

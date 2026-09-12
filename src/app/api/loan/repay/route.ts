@@ -81,11 +81,37 @@ export async function POST(request: Request) {
       // Read updated reputation from the contract.
       const rep = await readAgentReputation();
 
+      // Read the borrower's REAL on-chain reputation (S5 fix): previously
+      // this was hardcoded to { repaidCount: 1, defaultedCount: 0 }, which
+      // was both inaccurate and misleading. We now read from the
+      // BorrowerReputation contract the same way /api/loan/history does.
+      let borrowerRepaidCount = 0;
+      let borrowerDefaultedCount = 0;
+      const borrowerRepAddr = process.env.BORROWER_REPUTATION_ADDRESS;
+      if (borrowerRepAddr) {
+        try {
+          const borrowerRepAbi = [
+            'function getReputation(address) view returns (uint256 repaid, uint256 defaulted)',
+          ];
+          const borrowerRepContract = new Contract(
+            borrowerRepAddr,
+            borrowerRepAbi,
+            provider,
+          );
+          const [repaid, defaulted] = await borrowerRepContract.getReputation(borrower);
+          borrowerRepaidCount = Number(repaid);
+          borrowerDefaultedCount = Number(defaulted);
+        } catch {
+          // Best-effort: leave at 0 if the read fails (e.g. contract not
+          // wired). The agent reputation below is the authoritative signal.
+        }
+      }
+
       const response: LoanRepayResponse = {
         repaid: true,
         newBorrowerReputation: {
-          repaidCount: 1, // On-chain BorrowerReputation read would go here
-          defaultedCount: 0,
+          repaidCount: borrowerRepaidCount,
+          defaultedCount: borrowerDefaultedCount,
         },
         newAgentReputation: {
           cumulativeLoans: rep.cumulativeLoans,

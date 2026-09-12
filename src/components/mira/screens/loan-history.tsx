@@ -45,6 +45,7 @@ import { VerifiedBadge } from '@/components/mira/ui/verified-badge';
 import { ExportMenu } from '@/components/mira/ui/export-menu';
 import { useMiraStore } from '@/lib/mira/store-client';
 import { cc3TxUrl } from '@/lib/mira/explorer';
+import { formatUsd } from '@/lib/mira/format';
 import type { LoanStatus } from '@mira/shared';
 
 interface HistoryItem {
@@ -220,47 +221,10 @@ export function LoanHistory() {
         </div>
       </motion.div>
 
-      {/* Summary stats */}
+      {/* Summary stats — borrower-scoped counts computed directly from the
+          connected wallet's loan list (not the agent's platform-wide rep). */}
       {data && (
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                <Coins className="h-4 w-4" />
-              </div>
-              <CardTitle className="mt-3 font-mono text-2xl">{data.loans.length}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm font-medium">Total loans</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
-                <TrendingUp className="h-4 w-4" />
-              </div>
-              <CardTitle className="mt-3 font-mono text-2xl text-emerald-600">
-                {data.borrowerReputation.repaid}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm font-medium">Repaid</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
-                <TrendingDown className="h-4 w-4" />
-              </div>
-              <CardTitle className="mt-3 font-mono text-2xl text-destructive">
-                {data.borrowerReputation.defaulted}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm font-medium">Defaulted</p>
-            </CardContent>
-          </Card>
-        </div>
+        <BorrowerSummary loans={data.loans} />
       )}
 
       {/* Filter pills + sort */}
@@ -351,7 +315,7 @@ export function LoanHistory() {
                           </span>
                         </div>
                         <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
-                          <Field label="Amount" value={`$${loan.amount}`} mono />
+                          <Field label="Amount" value={formatUsd(loan.amount)} mono />
                           <Field label="Rate" value={`${loan.rate.toFixed(1)}% APR`} mono />
                           <Field label="Term" value={`${loan.term} days`} mono />
                           <Field
@@ -452,6 +416,60 @@ export function LoanHistory() {
           <ExternalLink className="ml-2 h-3.5 w-3.5" />
         </Button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Borrower-scoped summary cards. Counts are computed directly from the
+ * connected wallet's loan list (filtered to its own address by the
+ * /api/loan/history route) so they can never leak the agent's platform-wide
+ * cumulative repaid count into the user's widget. The filter-tab counts in
+ * the loan list below use the same source, so the summary cards and the
+ * filter tabs always agree.
+ */
+function BorrowerSummary({ loans }: { loans: HistoryItem[] }) {
+  const repaid = loans.filter((l) => l.status === 'Repaid').length;
+  const defaulted = loans.filter((l) => l.status === 'Defaulted').length;
+  return (
+    <div className="mt-8 grid gap-4 sm:grid-cols-3">
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <Coins className="h-4 w-4" />
+          </div>
+          <CardTitle className="mt-3 font-mono text-2xl">{loans.length}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm font-medium">Total loans</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+            <TrendingUp className="h-4 w-4" />
+          </div>
+          <CardTitle className="mt-3 font-mono text-2xl text-emerald-600">
+            {repaid}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm font-medium">Repaid</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+            <TrendingDown className="h-4 w-4" />
+          </div>
+          <CardTitle className="mt-3 font-mono text-2xl text-destructive">
+            {defaulted}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm font-medium">Defaulted</p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

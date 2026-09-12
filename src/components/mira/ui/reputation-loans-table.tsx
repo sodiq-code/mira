@@ -19,7 +19,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TxHash } from '@/components/mira/ui/tx-hash';
-import { cc3TxUrl } from '@/lib/mira/explorer';
+import { cc3TxUrl, cc3AddressUrl } from '@/lib/mira/explorer';
+import { formatUsd } from '@/lib/mira/format';
 import { cn } from '@/lib/utils';
 import type { LoanStatus } from '@mira/shared';
 
@@ -60,7 +61,25 @@ const SORT_LABELS: Record<SortKey, string> = {
   status: 'Status',
 };
 
-export function ReputationLoansTable({ loans }: { loans: LoanRow[] }) {
+export interface ReputationLoansTableSummaryCounts {
+  /** Cumulative platform-wide counts to show on the filter pills. When
+   * provided, the pills reflect the agent's full reputation rather than
+   * just the loans shown in the table (which is capped at the most-recent
+   * window). This fixes the empty-filter-count bug where the pills
+   * disagreed with the dashboard summary cards. */
+  all?: number;
+  Originated?: number;
+  Repaid?: number;
+  Defaulted?: number;
+}
+
+export function ReputationLoansTable({
+  loans,
+  summaryCounts,
+}: {
+  loans: LoanRow[];
+  summaryCounts?: ReputationLoansTableSummaryCounts;
+}) {
   const [sortKey, setSortKey] = useState<SortKey>('originatedBlock');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [filter, setFilter] = useState<'all' | LoanStatus>('all');
@@ -99,11 +118,27 @@ export function ReputationLoansTable({ loans }: { loans: LoanRow[] }) {
     }
   }
 
-  const counts = useMemo(() => {
-    const c = { all: loans.length, Originated: 0, Repaid: 0, Defaulted: 0 } as Record<string, number>;
-    for (const l of loans) c[l.status] = (c[l.status] ?? 0) + 1;
-    return c;
-  }, [loans]);
+  // Counts for the filter pills. Prefer the cumulative platform-wide counts
+  // (passed in from the dashboard's reputation summary) so the pills agree
+  // with the summary cards. Fall back to counting the visible window when
+  // the cumulative counts aren't supplied (e.g. when the table is reused
+  // elsewhere).
+  const counts = useMemo<Record<string, number>>(() => {
+    const fallback: Record<string, number> = {
+      all: loans.length,
+      Originated: 0,
+      Repaid: 0,
+      Defaulted: 0,
+    };
+    for (const l of loans) fallback[l.status] = (fallback[l.status] ?? 0) + 1;
+    if (!summaryCounts) return fallback;
+    return {
+      all: summaryCounts.all ?? fallback.all,
+      Originated: summaryCounts.Originated ?? fallback.Originated,
+      Repaid: summaryCounts.Repaid ?? fallback.Repaid,
+      Defaulted: summaryCounts.Defaulted ?? fallback.Defaulted,
+    };
+  }, [loans, summaryCounts]);
 
   return (
     <Card className="mt-6">
@@ -198,9 +233,13 @@ export function ReputationLoansTable({ loans }: { loans: LoanRow[] }) {
                       <TxHash hash={loan.loanId} href={cc3TxUrl(loan.loanId)} copyable={false} />
                     </td>
                     <td className="py-2.5 pr-3 text-muted-foreground">
-                      {loan.borrowerLabel ?? loan.borrower.slice(0, 8) + '…'}
+                      <TxHash
+                        hash={loan.borrower}
+                        href={cc3AddressUrl(loan.borrower)}
+                        copyable
+                      />
                     </td>
-                    <td className="py-2.5 pr-3 text-right font-mono">${loan.amount}</td>
+                    <td className="py-2.5 pr-3 text-right font-mono">{formatUsd(loan.amount)}</td>
                     <td className="py-2.5 pr-3 text-right font-mono">{loan.rate.toFixed(1)}%</td>
                     <td className="py-2.5 pr-3">
                       <StatusBadge status={loan.status} />
@@ -228,12 +267,16 @@ export function ReputationLoansTable({ loans }: { loans: LoanRow[] }) {
                     <div>
                       <div className="text-muted-foreground">Borrower</div>
                       <div className="truncate font-medium">
-                        {loan.borrowerLabel ?? loan.borrower.slice(0, 8) + '…'}
+                        <TxHash
+                          hash={loan.borrower}
+                          href={cc3AddressUrl(loan.borrower)}
+                          copyable
+                        />
                       </div>
                     </div>
                     <div>
                       <div className="text-muted-foreground">Amount</div>
-                      <div className="font-mono font-medium">${loan.amount}</div>
+                      <div className="font-mono font-medium">{formatUsd(loan.amount)}</div>
                     </div>
                     <div>
                       <div className="text-muted-foreground">Rate</div>

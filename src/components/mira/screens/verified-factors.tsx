@@ -34,6 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { VerifiedBadge } from '@/components/mira/ui/verified-badge';
+import { VerificationSourceBadge } from '@/components/mira/ui/verification-source-badge';
 import { TxHash } from '@/components/mira/ui/tx-hash';
 import { ProofDetailDialog } from '@/components/mira/ui/proof-detail-dialog';
 import { useMiraStore } from '@/lib/mira/store-client';
@@ -127,11 +128,40 @@ export function VerifiedFactors() {
               precompile. A borrower cannot claim activity they did not produce.
             </p>
           </div>
-          <VerifiedBadge
-            label={credit.demoMode ? 'Demo-mode data' : 'Attestcoin-verified'}
+          <VerificationSourceBadge
+            source={credit.verificationSource}
+            demoMode={credit.demoMode}
+            scannedTxCount={credit.scannedTxCount}
+            verifiedTxCount={credit.verifiedTxCount}
             className="shrink-0"
           />
         </div>
+
+        {credit.verificationSource === 'fallback' && credit.fallbackReason && (
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.04] p-3 text-sm">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
+            <div className="text-amber-700 dark:text-amber-400">
+              <span className="font-semibold">Real verification unavailable — showing demo data.</span>{' '}
+              The live Attestcoin credit check could not complete ({credit.fallbackReason}). The
+              factors below are synthetic and labeled as such. Connect the verified Sepolia demo
+              wallet, or try again later, for real verified data.
+            </div>
+          </div>
+        )}
+
+        {credit.verificationSource === 'attestcoin' &&
+          typeof credit.verifiedTxCount === 'number' &&
+          typeof credit.scannedTxCount === 'number' && (
+            <div className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/[0.04] p-3 text-sm text-emerald-700 dark:text-emerald-400">
+              <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden />
+              <span>
+                <span className="font-semibold">
+                  {credit.verifiedTxCount} of {credit.scannedTxCount} Sepolia transactions
+                </span>{' '}
+                passed Attestcoin inclusion-proof verification via the BlockProver precompile.
+              </span>
+            </div>
+          )}
       </motion.div>
 
       {credit.demoMode && (

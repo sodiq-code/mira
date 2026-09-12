@@ -28,8 +28,47 @@ async function main(): Promise<void> {
   console.log(`Deploying with account: ${deployerAddress}`);
   console.log(`Network: ${(await ethers.provider.getNetwork()).name}`);
 
-  const worker = deployerAddress;
-  const governance = deployerAddress;
+  // ─── Role separation (security) ────────────────────────────────────
+  // The worker (hot key, lives on the server, originates loans) and
+  // governance (cold key, ideally a multisig, owns bounds/pause/force-
+  // default) MUST be different addresses. A single shared key means one
+  // compromise grants full protocol control. We refuse to deploy if they
+  // are equal — set both env vars before running contracts:deploy.
+  const worker = process.env.WORKER_ADDRESS;
+  const governance = process.env.GOVERNANCE_ADDRESS;
+  if (!worker || !governance) {
+    throw new Error(
+      'WORKER_ADDRESS and GOVERNANCE_ADDRESS env vars are required and must ' +
+      'be DIFFERENT addresses (worker = hot operational key, governance = ' +
+      'cold/multisig key). Refusing to deploy with a shared key.',
+    );
+  }
+  if (worker.toLowerCase() === governance.toLowerCase()) {
+    throw new Error(
+      'WORKER_ADDRESS and GOVERNANCE_ADDRESS must be DIFFERENT. Deploying ' +
+      'with a shared key gives a single compromise full protocol control.',
+    );
+  }
+
+  // The deployer MUST be the governance key. Several post-deploy steps
+  // (notably LiquidityPool.deposit, which is `onlyGovernance`) require the
+  // deployer to sign as governance. If a different cold/multisig key is used
+  // for governance, the deployer cannot seed the pool and every governance-
+  // gated Loan function (setWorker, lockToProductionMode, forceMarkDefaulted,
+  // setBounds, …) is bricked because the Loan.governance slot points at an
+  // address the deployer cannot sign for.
+  if (governance.toLowerCase() !== deployerAddress.toLowerCase()) {
+    throw new Error(
+      `The deployer (${deployerAddress}) must equal GOVERNANCE_ADDRESS ` +
+      `(${governance}). LiquidityPool.deposit is onlyGovernance, so the ` +
+      `deployer must be able to sign as governance to seed the pool. To use ` +
+      `a cold/multisig governance key, deploy with that key directly ` +
+      `(set CREDITCOIN_PRIVATE_KEY to the governance key).`,
+    );
+  }
+
+  console.log(`Worker (hot key):     ${worker}`);
+  console.log(`Governance (cold key): ${governance}`);
 
   // Default bounds: rate 5–25% APR, terms 7/30/90 days, max $2,500.
   const maxLoanAmount = 250_000n; // $2,500 in cents
@@ -74,6 +113,9 @@ async function main(): Promise<void> {
 
   // 5. LiquidityPool (depends on MockUSDC)
   const LiquidityPool = await ethers.getContractFactory('LiquidityPool');
+  // NOTE: LiquidityPool takes (governance, worker, token) — governance
+  // owns deposits/withdrawals, worker is allowed alongside the Loan
+  // contract to move capital during origination/repayment.
   const pool = await LiquidityPool.deploy(governance, worker, tokenAddr);
   await pool.waitForDeployment();
   const poolAddr = await pool.getAddress();
@@ -81,7 +123,14 @@ async function main(): Promise<void> {
 
   // 6. Loan (depends on Policy, AgentReputation, BorrowerReputation, LiquidityPool)
   const Loan = await ethers.getContractFactory('Loan');
-  const loan = await Loan.deploy(worker, policyAddr, agentRepAddr, borrowerRepAddr, poolAddr);
+  const loan = await Loan.deploy(
+    worker,
+    governance,
+    policyAddr,
+    agentRepAddr,
+    borrowerRepAddr,
+    poolAddr,
+  );
   await loan.waitForDeployment();
   const loanAddr = await loan.getAddress();
   console.log(`Loan             → ${loanAddr}`);
@@ -96,11 +145,13 @@ async function main(): Promise<void> {
   console.log('Cross-contract dependencies wired.');
 
   // ─── Seed the liquidity pool with real tokens ───────────────────────
-
+  // Governance (the deployer in this script) seeds the pool. The deployer
+  // must hold the seed tokens and approve the pool to spend them.
   const seedAmount = 1_000_000n; // $10,000 in cents
   const seedTokens = seedAmount * 10_000n; // 6-decimal units
 
   await (await token.mint(governance, seedTokens)).wait();
+  // The deployer (governance) approves the pool, then deposits.
   await (await token.approve(poolAddr, seedTokens)).wait();
   await (await pool.deposit(seedAmount)).wait();
   console.log(`LiquidityPool seeded with $10,000 real tokens (${seedTokens} units).`);

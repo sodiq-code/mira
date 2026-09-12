@@ -35,6 +35,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { TxHash } from '@/components/mira/ui/tx-hash';
 import { VerifiedBadge } from '@/components/mira/ui/verified-badge';
+import { ClampCallout } from '@/components/mira/ui/clamp-callout';
+import { formatUsd } from '@/lib/mira/format';
 import { useMiraStore } from '@/lib/mira/store-client';
 import { cc3TxUrl } from '@/lib/mira/explorer';
 import {
@@ -173,9 +175,21 @@ export function LoanOriginated() {
           </CardHeader>
 
           <CardContent className="space-y-5">
+            {/* Amount-clamp callout — surfaces the silent reduction that
+                happens when the LLM or the on-chain tier cap clamps the
+                approved amount below what the borrower asked for. */}
+            {!repaid && !defaulted && decision.wasClamped && decision.requestedAmount && (
+              <ClampCallout
+                requestedAmount={decision.requestedAmount}
+                approvedAmount={decision.approvedAmount}
+                effectiveCap={decision.effectiveCap}
+                agentScore={decision.agentReputation.currentScore}
+              />
+            )}
+
             {/* Loan terms */}
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <Detail icon={Coins} label="Amount" value={`$${loan.amount}`} />
+              <Detail icon={Coins} label="Amount" value={formatUsd(loan.amount)} />
               <Detail label="Rate" value={`${loan.rate.toFixed(1)}% APR`} />
               <Detail label="Term" value={`${loan.term} days`} />
               <Detail icon={CalendarClock} label="Status" value={statusText(repaid, defaulted)} />
