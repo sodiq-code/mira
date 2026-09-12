@@ -129,8 +129,8 @@ const STEPS: DemoStep[] = [
     icon: Coins,
     tone: 'emerald',
     evidence: [
-      { label: 'Proof-verified loan origination (CC3)', href: CC3_TX('0xbde2fb982ed81d1d9e5f763c356e89fcbf0ee2e95c9a37fb02d3fa3d7b520e1e') },
-      { label: 'LiquidityPool contract (CC3)', href: CC3_ADDR('0xB1F8fe06272679B4541E76FB270cF5483341Cf29') },
+      { label: 'Proof-verified loan origination (CC3)', href: CC3_TX('0x97b76818b483578bc48af2ce2514b803138348c0c97f8231fe790ff0be95c506') },
+      { label: 'LiquidityPool contract (CC3)', href: CC3_ADDR('0xC0d4B541EAa622637adE3A1ef242E9975d02b2Ce') },
     ],
   },
   {
@@ -149,7 +149,7 @@ const STEPS: DemoStep[] = [
     icon: ShieldCheck,
     tone: 'emerald',
     evidence: [
-      { label: 'Proof-verified repayment tx (CC3)', href: CC3_TX('0x3d4e37d4d6f6bcb97d6390caf599cbc952a4e162ebc6ba0e6b48c2f8ceec4dd5') },
+      { label: 'Proof-verified repayment tx (CC3)', href: CC3_TX('0x22593af0d902648480704e9db75e32ff3291f92d56e9ce91a68ebc641f0f127a') },
       { label: 'Sepolia tx proven (Etherscan)', href: SEPOLIA_TX('0xedd21116c18c96bff741f6545442b92ccb4f9fff42cb37df3e1aa22c1b10733c') },
     ],
   },
@@ -161,7 +161,7 @@ const STEPS: DemoStep[] = [
     icon: TrendingUp,
     tone: 'emerald',
     evidence: [
-      { label: 'AgentReputation contract (CC3)', href: CC3_ADDR('0x329db2f339cd24CaeedFeF7A37a3Ad90a727948a') },
+      { label: 'AgentReputation contract (CC3)', href: CC3_ADDR('0x39aeBc2c8890c42676CCE573F6570e48910a031F') },
     ],
   },
   {

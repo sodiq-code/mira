@@ -228,8 +228,8 @@ BlockProver.verify()
 
 The deployed Loan contract is **locked to production mode** — `demoMode()` returns `false`, and the worker-trusted `markRepaid()` path permanently reverts with `"rejected in production mode"` even when called by the authorized worker.
 
-- **Production-mode lock tx:** [`0xeea1287d…`](https://creditcoin-testnet.blockscout.com/tx/0xeea1287d70ca57797744f66ed979831e6799379bbb4ceb03abe1df26a43f167e)
-- **Proof-verified repayment tx:** [`0x3d4e37d4…`](https://creditcoin-testnet.blockscout.com/tx/0x3d4e37d4d6f6bcb97d6390caf599cbc952a4e162ebc6ba0e6b48c2f8ceec4dd5) — the contract verified the proof on-chain, moved real tokens, and updated the score 675 → 685 (+10).
+- **Production-mode lock tx:** [`0xb38fd923…`](https://creditcoin-testnet.blockscout.com/tx/0xb38fd9233853e8da872951931eb5d3f6ff7a06db633c4f7da0a313a21369804a)
+- **Proof-verified repayment tx:** [`0x22593af0…`](https://creditcoin-testnet.blockscout.com/tx/0x22593af0d902648480704e9db75e32ff3291f92d56e9ce91a68ebc641f0f127a) — the contract verified the proof on-chain, moved real tokens, and updated the score 675 → 685 (+10).
 - **Sepolia transaction proven:** [`0xedd21116…`](https://sepolia.etherscan.io/tx/0xedd21116c18c96bff741f6545442b92ccb4f9fff42cb37df3e1aa22c1b10733c)
 
 ### Origination vs repayment: two trust models, one reason
@@ -355,7 +355,7 @@ These execute against deployed CC3 Testnet contracts. Synthetic/demo data is exp
 
 ### Proof-verified repayment
 
-Real CC3 transaction that moved tokens + updated the score: [`0x3d4e37d4…`](https://creditcoin-testnet.blockscout.com/tx/0x3d4e37d4d6f6bcb97d6390caf599cbc952a4e162ebc6ba0e6b48c2f8ceec4dd5)
+Real CC3 transaction that moved tokens + updated the score: [`0x22593af0…`](https://creditcoin-testnet.blockscout.com/tx/0x22593af0d902648480704e9db75e32ff3291f92d56e9ce91a68ebc641f0f127a)
 
 ### Reputation progression
 
@@ -373,10 +373,10 @@ The agent earned, lost, and re-earned the right to manage capital — all throug
 You don't have to trust this README. The chain is the evidence.
 
 1. **Open the [live app](https://mira-credit-agent.vercel.app)** — connect the verified Sepolia wallet.
-2. **Check [AgentReputation](https://creditcoin-testnet.blockscout.com/address/0x329db2f339cd24CaeedFeF7A37a3Ad90a727948a)** — score 685, 21 repaid, 1 defaulted.
-3. **Open the [Loan contract](https://creditcoin-testnet.blockscout.com/address/0x6ca75999B213688Ec7173F4BF318d4EFFa0D509a)** — read `demoMode()` → confirm `false` (production locked).
-4. **Open the [production-mode lock tx](https://creditcoin-testnet.blockscout.com/tx/0xeea1287d70ca57797744f66ed979831e6799379bbb4ceb03abe1df26a43f167e)** — the worker-trusted path is permanently closed.
-5. **Open the [proof-verified repayment tx](https://creditcoin-testnet.blockscout.com/tx/0x3d4e37d4d6f6bcb97d6390caf599cbc952a4e162ebc6ba0e6b48c2f8ceec4dd5)** — the contract called the BlockProver precompile.
+2. **Check [AgentReputation](https://creditcoin-testnet.blockscout.com/address/0x39aeBc2c8890c42676CCE573F6570e48910a031F)** — score 685, 21 repaid, 1 defaulted.
+3. **Open the [Loan contract](https://creditcoin-testnet.blockscout.com/address/0x09DDD93e09a2A51212Ce64729dA9553C01484dE6)** — read `demoMode()` → confirm `false` (production locked).
+4. **Open the [production-mode lock tx](https://creditcoin-testnet.blockscout.com/tx/0xb38fd9233853e8da872951931eb5d3f6ff7a06db633c4f7da0a313a21369804a)** — the worker-trusted path is permanently closed.
+5. **Open the [proof-verified repayment tx](https://creditcoin-testnet.blockscout.com/tx/0x22593af0d902648480704e9db75e32ff3291f92d56e9ce91a68ebc641f0f127a)** — the contract called the BlockProver precompile.
 6. **Open the [proven Sepolia transaction](https://sepolia.etherscan.io/tx/0xedd21116c18c96bff741f6545442b92ccb4f9fff42cb37df3e1aa22c1b10733c)** — the real Ethereum transaction that was proven.
 7. **Run an [attack](https://mira-credit-agent.vercel.app)** — submit a fabricated proof and see the on-chain revert reason.
 
@@ -386,12 +386,12 @@ You don't have to trust this README. The chain is the evidence.
 
 | Contract | Address |
 |---|---|
-| MockUSDC (ERC-20) | [`0x041cBfe69B82ba6B7987fC8f6c23F392487210bB`](https://creditcoin-testnet.blockscout.com/address/0x041cBfe69B82ba6B7987fC8f6c23F392487210bB) |
-| Policy | [`0x7413780C5f8E7725A3388F93b2C2Acd8dBE78DC3`](https://creditcoin-testnet.blockscout.com/address/0x7413780C5f8E7725A3388F93b2C2Acd8dBE78DC3) |
-| AgentReputation | [`0x329db2f339cd24CaeedFeF7A37a3Ad90a727948a`](https://creditcoin-testnet.blockscout.com/address/0x329db2f339cd24CaeedFeF7A37a3Ad90a727948a) |
-| BorrowerReputation | [`0xCe52811f9776f27e4B0501c45592021f883e2583`](https://creditcoin-testnet.blockscout.com/address/0xCe52811f9776f27e4B0501c45592021f883e2583) |
-| LiquidityPool | [`0xB1F8fe06272679B4541E76FB270cF5483341Cf29`](https://creditcoin-testnet.blockscout.com/address/0xB1F8fe06272679B4541E76FB270cF5483341Cf29) |
-| Loan | [`0x6ca75999B213688Ec7173F4BF318d4EFFa0D509a`](https://creditcoin-testnet.blockscout.com/address/0x6ca75999B213688Ec7173F4BF318d4EFFa0D509a) |
+| MockUSDC (ERC-20) | [`0xC432D8e9EECf1007210495Bb62BFD4bb1067C111`](https://creditcoin-testnet.blockscout.com/address/0xC432D8e9EECf1007210495Bb62BFD4bb1067C111) |
+| Policy | [`0xfA56163685bCEcFCe7Ab3a7A2531B1Dd0e9Efb51`](https://creditcoin-testnet.blockscout.com/address/0xfA56163685bCEcFCe7Ab3a7A2531B1Dd0e9Efb51) |
+| AgentReputation | [`0x39aeBc2c8890c42676CCE573F6570e48910a031F`](https://creditcoin-testnet.blockscout.com/address/0x39aeBc2c8890c42676CCE573F6570e48910a031F) |
+| BorrowerReputation | [`0xf93a0dB417243312B5507931B0a3EF610578b788`](https://creditcoin-testnet.blockscout.com/address/0xf93a0dB417243312B5507931B0a3EF610578b788) |
+| LiquidityPool | [`0xC0d4B541EAa622637adE3A1ef242E9975d02b2Ce`](https://creditcoin-testnet.blockscout.com/address/0xC0d4B541EAa622637adE3A1ef242E9975d02b2Ce) |
+| Loan | [`0x09DDD93e09a2A51212Ce64729dA9553C01484dE6`](https://creditcoin-testnet.blockscout.com/address/0x09DDD93e09a2A51212Ce64729dA9553C01484dE6) |
 
 Precompiles:
 
