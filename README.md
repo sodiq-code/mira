@@ -666,9 +666,10 @@ See [`.env.example`](./.env.example) for the full list. The key ones:
 | `CREDITCOIN_RPC_URL` | Creditcoin CC3 Testnet JSON-RPC endpoint | No (public default) |
 | `SEPOLIA_RPC_URL` | Ethereum Sepolia JSON-RPC endpoint | No (public default) |
 | `CREDITCOIN_PROOF_BUILDER_URL` | Gluwa proof builder service base URL | No (public default) |
-| `CREDITCOIN_PRIVATE_KEY` | Funded CC3 wallet (governance/deployer key), for on-chain operations | Yes (enables real loans) |
-| `WORKER_ADDRESS` | Hot operational key that originates/repays loans. **Must differ from `GOVERNANCE_ADDRESS`.** Required by `contracts:deploy`. | Yes (deployment) |
-| `GOVERNANCE_ADDRESS` | Cold/multisig key that owns bounds, pause, force-default, worker rotation. **Must differ from `WORKER_ADDRESS`.** | Yes (deployment) |
+| `CREDITCOIN_PRIVATE_KEY` | Worker key (originates/repays loans, emits `TransactionVerified`) | Yes (enables real loans) |
+| `GOVERNANCE_PRIVATE_KEY` | Governance key (force-default, production lock, worker rotation) — used by `/api/demo/trigger-default` | Yes (demo default trigger) |
+| `WORKER_ADDRESS` | Hot operational key that originates/repays loans | Yes (deployment) |
+| `GOVERNANCE_ADDRESS` | Cold/multisig key that owns bounds, pause, force-default, worker rotation | Yes (deployment) |
 | `TOKEN_ADDRESS` | MockUSDC contract address on CC3 | Yes (real capital) |
 | `POLICY_ADDRESS` | Policy contract address | Yes (on-chain validation) |
 | `LOAN_ADDRESS` | Loan contract address | Yes (real origination) |
