@@ -510,18 +510,6 @@ The deployed contract is locked to production mode — `demoMode()` returns `fal
 
 **Demo default trigger:** `Loan.forceMarkDefaulted()` (governance-only) bypasses the due-block check so the demo can show the default impact immediately without waiting 7-30 days for the loan term to expire. It atomically sets the loan status to Defaulted, updates AgentReputation (score -25), and updates BorrowerReputation. In production, only `markDefaulted()` (with the due-block check) is used — the worker's default-detector calls it when the term has actually expired.
 
-## Technical tradeoffs
-
-### Why stablecoin Transfers, not Aave Repay events?
-
-MIRA underwrites against real Sepolia ERC-20 `Transfer` events from native USDC/USDT/DAI and a MIRA-deployed test ERC-20.
-
-The **cryptographic inclusion guarantee** is equivalent: both are real, attested Sepolia transactions that the BlockProver can verify.
-
-The **financial meaning is not equivalent**: an Aave `Repay` is a stronger indicator of repayment behavior than a generic token transfer.
-
-On mainnet, the same code path would prove Aave V3 `Repay` events once Creditcoin attests mainnet blocks. See [`docs/attestcoin-integration.md`](./docs/attestcoin-integration.md) for the full analysis.
-
 ## Tests
 
 41 contract tests pass, covering:
