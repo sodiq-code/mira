@@ -237,7 +237,7 @@ BlockProver.verify()
 The deployed Loan contract is **locked to production mode** — `demoMode()` returns `false`, and the worker-trusted `markRepaid()` path permanently reverts with `"rejected in production mode"` even when called by the authorized worker.
 
 - **Production-mode lock tx:** [`0xb38fd923…`](https://creditcoin-testnet.blockscout.com/tx/0xb38fd9233853e8da872951931eb5d3f6ff7a06db633c4f7da0a313a21369804a)
-- **Proof-verified repayment tx:** [`0x22593af0…`](https://creditcoin-testnet.blockscout.com/tx/0x22593af0d902648480704e9db75e32ff3291f92d56e9ce91a68ebc641f0f127a) — the contract verified the proof on-chain, moved real tokens, and updated the score 675 → 685 (+10).
+- **Proof-verified repayment tx:** [`0x22593af0…`](https://creditcoin-testnet.blockscout.com/tx/0x22593af0d902648480704e9db75e32ff3291f92d56e9ce91a68ebc641f0f127a) — the contract verified the proof on-chain, moved real tokens, and updated the agent's reputation.
 - **Sepolia transaction proven:** [`0xedd21116…`](https://sepolia.etherscan.io/tx/0xedd21116c18c96bff741f6545442b92ccb4f9fff42cb37df3e1aa22c1b10733c)
 
 ### Origination vs repayment: two trust models, one reason
